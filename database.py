@@ -43,3 +43,11 @@ def get_all_employees():
 
     conn.close()
     return data
+
+def delete_employee_by_id(employee_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id))
+    conn.commit()
+    conn.close()

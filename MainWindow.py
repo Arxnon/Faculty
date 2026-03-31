@@ -1,0 +1,80 @@
+from PyQt5 import QtWidgets, uic
+from PyQt5.QtCore import Qt
+from database import add_employee, get_all_employees
+
+
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        uic.loadUi("main.ui", self)
+
+        self.inputName = self.findChild(QtWidgets.QLineEdit, "inputName")
+        self.inputBirthDate = self.findChild(QtWidgets.QDateEdit, "inputBirthDate")
+        self.inputPosition = self.findChild(QtWidgets.QLineEdit, "inputPosition")
+        self.inputDegree = self.findChild(QtWidgets.QLineEdit, "inputDegree")
+        self.inputRank = self.findChild(QtWidgets.QLineEdit, "inputRank")
+
+        self.btnAddEmp = self.findChild(QtWidgets.QPushButton, "btnAddEmp")
+        self.btnUpdateEmp = self.findChild(QtWidgets.QPushButton, "btnUpdateEmp")
+
+        self.tableEmployees = self.findChild(QtWidgets.QTableWidget, "tableEmployees")
+
+        self.btnAddEmp.clicked.connect(self.add_employee)
+        self.btnUpdateEmp.clicked.connect(self.load_employees)
+
+        self.chkUseInterval = self.findChild(QtWidgets.QCheckBox, "chkUseInterval")
+        self.dateStart = self.findChild(QtWidgets.QDateEdit, "dateStart")
+        self.dateEnd = self.findChild(QtWidgets.QDateEdit, "dateEnd")
+        self.spinReportYear = self.findChild(QtWidgets.QSpinBox, "spinReportYear")
+
+        self.chkUseInterval.stateChanged.connect(self.toggleInterval)
+
+        self.load_employees()
+
+    def toggleInterval(self, state):
+        enabled = state == Qt.Checked
+        self.dateStart.setEnabled(enabled)
+        self.dateEnd.setEnabled(enabled)
+        self.spinReportYear.setEnabled(not enabled)
+
+    def add_employee(self):
+        fio = self.inputName.text()
+        birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
+        position = self.inputPosition.text()
+        degree = self.inputDegree.text()
+        rank = self.inputRank.text()
+
+        if not fio:
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "Введите ФИО")
+            return
+
+        add_employee(fio, birth_date, position, degree, rank)
+
+        QtWidgets.QMessageBox.information(self, "Успех", "Сотрудник добавлен")
+
+        self.clear_fields()
+        self.load_employees()
+
+    def load_employees(self):
+        data = get_all_employees()
+
+        self.tableEmployees.setRowCount(len(data))
+        self.tableEmployees.setColumnCount(6)
+        self.tableEmployees.setHorizontalHeaderLabels([
+            "ID", "ФИО", "Дата рождения", "Должность", "Степень", "Звание"
+        ])
+
+        for row_idx, row_data in enumerate(data):
+            for col_idx, value in enumerate(row_data):
+                self.tableEmployees.setItem(
+                    row_idx,
+                    col_idx,
+                    QtWidgets.QTableWidgetItem(str(value))
+                )
+
+    def clear_fields(self):
+        self.inputName.clear()
+        self.inputPosition.clear()
+        self.inputDegree.clear()
+        self.inputRank.clear()
+

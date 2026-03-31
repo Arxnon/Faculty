@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="windowTitle">
+   <string>Система учета сотрудников</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+
+      <widget class="QWidget" name="tabEmployees">
+       <attribute name="title"><string>Сотрудники</string></attribute>
+       <layout class="QHBoxLayout">
+        <item>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QLineEdit" name="searchEmployees">
+            <property name="placeholderText"><string>Поиск сотрудника...</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tableEmployees"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QLabel">
+            <property name="text"><string><b>Редактирование сотрудника</b></string></property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QFormLayout">
+            <item row="0" column="0"><widget class="QLabel"><property name="text"><string>ФИО:</string></property></widget></item>
+            <item row="0" column="1"><widget class="QLineEdit" name="inputName"/></item>
+            <item row="1" column="0"><widget class="QLabel"><property name="text"><string>Дата рождения:</string></property></widget></item>
+            <item row="1" column="1"><widget class="QDateEdit" name="inputBirthDate">
+             <property name="calendarPopup"><bool>true</bool></property>
+             <property name="displayFormat"><string>dd.MM.yyyy</string></property>
+            </widget></item>
+            <item row="2" column="0"><widget class="QLabel"><property name="text"><string>Должность:</string></property></widget></item>
+            <item row="2" column="1"><widget class="QLineEdit" name="inputPosition"/></item>
+            <item row="3" column="0"><widget class="QLabel"><property name="text"><string>Степень:</string></property></widget></item>
+            <item row="3" column="1"><widget class="QLineEdit" name="inputDegree"/></item>
+            <item row="4" column="0"><widget class="QLabel"><property name="text"><string>Звание:</string></property></widget></item>
+            <item row="4" column="1"><widget class="QLineEdit" name="inputRank"/></item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout">
+            <item><widget class="QPushButton" name="btnAddEmp"><property name="text"><string>Добавить</string></property></widget></item>
+            <item><widget class="QPushButton" name="btnUpdateEmp"><property name="text"><string>Обновить</string></property></widget></item>
+            <item><widget class="QPushButton" name="btnDeleteEmp"><property name="text"><string>Удалить</string></property></widget></item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+
+      <widget class="QWidget" name="tabPublications">
+       <attribute name="title"><string>Публикации</string></attribute>
+       <layout class="QHBoxLayout">
+        <item>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QLineEdit" name="searchPublications">
+            <property name="placeholderText"><string>Поиск публикации...</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tablePublications"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QLabel"><property name="text"><string><b>Добавление публикации</b></string></property></widget>
+          </item>
+          <item>
+           <layout class="QFormLayout">
+            <item row="0" column="0"><widget class="QLabel"><property name="text"><string>Название:</string></property></widget></item>
+            <item row="0" column="1"><widget class="QLineEdit" name="inputPubTitle"/></item>
+            <item row="1" column="0"><widget class="QLabel"><property name="text"><string>Издание:</string></property></widget></item>
+            <item row="1" column="1"><widget class="QLineEdit" name="inputJournal"/></item>
+            <item row="2" column="0"><widget class="QLabel"><property name="text"><string>Уровень:</string></property></widget></item>
+            <item row="2" column="1"><widget class="QComboBox" name="comboLevel">
+             <item><property name="text"><string>Scopus</string></property></item>
+             <item><property name="text"><string>Web of Science</string></property></item>
+             <item><property name="text"><string>ВАК</string></property></item>
+             <item><property name="text"><string>РИНЦ</string></property></item>
+             <item><property name="text"><string>Прочее</string></property></item>
+            </widget></item>
+            <item row="3" column="0"><widget class="QLabel"><property name="text"><string>Страницы:</string></property></widget></item>
+            <item row="3" column="1"><widget class="QSpinBox" name="inputPages">
+             <property name="minimum"><number>1</number></property>
+             <property name="maximum"><number>10000</number></property>
+             <property name="value"><number>1</number></property>
+            </widget></item>
+            <item row="4" column="0"><widget class="QLabel"><property name="text"><string>Тип:</string></property></widget></item>
+            <item row="4" column="1"><widget class="QComboBox" name="comboType">
+             <item><property name="text"><string>Электронная</string></property></item>
+             <item><property name="text"><string>Печатная</string></property></item>
+            </widget></item>
+            <item row="5" column="0"><widget class="QLabel"><property name="text"><string>Дата:</string></property></widget></item>
+            <item row="5" column="1"><widget class="QDateEdit" name="inputPubDate">
+             <property name="calendarPopup"><bool>true</bool></property>
+             <property name="displayFormat"><string>dd.MM.yyyy</string></property>
+            </widget></item>
+            <item row="6" column="0"><widget class="QLabel"><property name="text"><string>Авторы:</string></property></widget></item>
+            <item row="6" column="1"><widget class="QLineEdit" name="inputAuthors">
+             <property name="placeholderText"><string>Иванов И.И.; Петров П.П.</string></property>
+            </widget></item>
+           </layout>
+          </item>
+          <item><widget class="QPushButton" name="btnFilePub"><property name="text"><string>Прикрепить файл</string></property></widget></item>
+          <item>
+           <layout class="QHBoxLayout">
+            <item><widget class="QPushButton" name="btnAddPub"><property name="text"><string>Добавить</string></property></widget></item>
+            <item><widget class="QPushButton" name="btnDeletePub"><property name="text"><string>Удалить</string></property></widget></item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+
+      <widget class="QWidget" name="tabAchievements">
+       <attribute name="title"><string>Достижения</string></attribute>
+       <layout class="QHBoxLayout">
+        <item>
+         <layout class="QVBoxLayout">
+          <item>
+           <widget class="QLineEdit" name="searchAchievements">
+            <property name="placeholderText"><string>Поиск достижения...</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTableWidget" name="tableAchievements"/>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QVBoxLayout">
+          <item><widget class="QLabel"><property name="text"><string><b>Добавление достижения</b></string></property></widget></item>
+          <item>
+           <layout class="QFormLayout">
+            <item row="0" column="0"><widget class="QLabel"><property name="text"><string>Сотрудник:</string></property></widget></item>
+            <item row="0" column="1"><widget class="QLineEdit" name="inputEmployeeName"/></item>
+            <item row="1" column="0"><widget class="QLabel"><property name="text"><string>Мероприятие:</string></property></widget></item>
+            <item row="1" column="1"><widget class="QLineEdit" name="inputEvent"/></item>
+            <item row="2" column="0"><widget class="QLabel"><property name="text"><string>Достижение:</string></property></widget></item>
+            <item row="2" column="1"><widget class="QLineEdit" name="inputAchievement"/></item>
+            <item row="3" column="0"><widget class="QLabel"><property name="text"><string>Город:</string></property></widget></item>
+            <item row="3" column="1"><widget class="QLineEdit" name="inputCity"/></item>
+            <item row="4" column="0"><widget class="QLabel"><property name="text"><string>Организация:</string></property></widget></item>
+            <item row="4" column="1"><widget class="QLineEdit" name="inputOrganization"/></item>
+            <item row="5" column="0"><widget class="QLabel"><property name="text"><string>Дата:</string></property></widget></item>
+            <item row="5" column="1"><widget class="QDateEdit" name="inputAchDate">
+             <property name="calendarPopup"><bool>true</bool></property>
+             <property name="displayFormat"><string>dd.MM.yyyy</string></property>
+            </widget></item>
+            <item row="6" column="0"><widget class="QLabel"><property name="text"><string>Работа:</string></property></widget></item>
+            <item row="6" column="1"><widget class="QLineEdit" name="inputWork"/></item>
+           </layout>
+          </item>
+          <item><widget class="QPushButton" name="btnFileAch"><property name="text"><string>Прикрепить файл</string></property></widget></item>
+          <item>
+           <layout class="QHBoxLayout">
+            <item><widget class="QPushButton" name="btnAddAch"><property name="text"><string>Добавить</string></property></widget></item>
+            <item><widget class="QPushButton" name="btnDeleteAch"><property name="text"><string>Удалить</string></property></widget></item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+
+      <widget class="QWidget" name="tabReports">
+       <attribute name="title"><string>Отчёты</string></attribute>
+       <layout class="QVBoxLayout">
+        <item>
+         <widget class="QGroupBox">
+          <property name="title"><string>Фильтры</string></property>
+          <layout class="QFormLayout">
+           <item row="0" column="0"><widget class="QLabel"><property name="text"><string>Сотрудник:</string></property></widget></item>
+           <item row="0" column="1"><widget class="QLineEdit" name="inputReportEmployee"/></item>
+
+           <item row="1" column="0"><widget class="QLabel"><property name="text"><string>Год:</string></property></widget></item>
+           <item row="1" column="1"><widget class="QSpinBox" name="spinReportYear">
+            <property name="minimum"><number>1</number></property>
+            <property name="maximum"><number>10000</number></property>
+            <property name="value"><number>2026</number></property>
+           </widget></item>
+
+           <item row="2" column="0"><widget class="QCheckBox" name="chkUseInterval">
+            <property name="text"><string>Использовать интервал дат</string></property>
+           </widget></item>
+           <item row="2" column="1">
+            <layout class="QHBoxLayout">
+             <item><widget class="QDateEdit" name="dateStart">
+              <property name="calendarPopup"><bool>true</bool></property>
+              <property name="displayFormat"><string>dd.MM.yyyy</string></property>
+              <property name="enabled"><bool>false</bool></property>
+             </widget></item>
+             <item><widget class="QLabel"><property name="text"><string>—</string></property></widget></item>
+             <item><widget class="QDateEdit" name="dateEnd">
+              <property name="calendarPopup"><bool>true</bool></property>
+              <property name="displayFormat"><string>dd.MM.yyyy</string></property>
+              <property name="enabled"><bool>false</bool></property>
+             </widget></item>
+            </layout>
+           </item>
+
+           <item row="3" column="0"><widget class="QLabel"><property name="text"><string>Уровень:</string></property></widget></item>
+           <item row="3" column="1"><widget class="QComboBox" name="comboReportLevel">
+            <item><property name="text"><string>Scopus</string></property></item>
+            <item><property name="text"><string>Web of Science</string></property></item>
+            <item><property name="text"><string>ВАК</string></property></item>
+            <item><property name="text"><string>РИНЦ</string></property></item>
+            <item><property name="text"><string>Прочее</string></property></item>
+           </widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item><widget class="QPushButton" name="btnReportByEmployee"><property name="text"><string>По сотруднику</string></property></widget></item>
+          <item><widget class="QPushButton" name="btnReportByYear"><property name="text"><string>По году</string></property></widget></item>
+          <item><widget class="QPushButton" name="btnReportByLevel"><property name="text"><string>По уровню</string></property></widget></item>
+          <item><widget class="QPushButton" name="btnExportPDF"><property name="text"><string>Экспорт PDF</string></property></widget></item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QTableWidget" name="tableReports"/>
+        </item>
+       </layout>
+      </widget>
+
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

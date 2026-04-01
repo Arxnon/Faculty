@@ -51,8 +51,22 @@ class MainWindow(QtWidgets.QMainWindow):
         degree = self.inputDegree.text()
         rank = self.inputRank.text()
 
-        if not fio:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Введите ФИО")
+        fio_no_spaces = fio.replace(' ', '')
+
+        if fio and not (position or degree or rank):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Ошибка",
+                "При заполнении ФИО необходимо заполнить хотя бы одно из полей: должность, звание или степень"
+            )
+            return
+
+        if fio or fio.isspace():
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "ФИО не может быть пустым или состоять только из пробелов")
+            return
+
+        if fio_no_spaces.isdigit():
+            QtWidgets.QMessageBox.warning(self, "Ошибка","ФИО не может состоять из цифр")
             return
 
         add_employee(fio, birth_date, position, degree, rank)
@@ -68,7 +82,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tableEmployees.setRowCount(len(data))
         self.tableEmployees.setColumnCount(6)
         self.tableEmployees.setHorizontalHeaderLabels([
-            "ID", "ФИО", "Дата рождения", "Должность", "Степень", "Звание"
+            "Id", "ФИО", "Дата рождения", "Должность", "Степень", "Звание"
         ])
 
         for row_idx, row_data in enumerate(data):
@@ -92,7 +106,11 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Ошибка", "Не удалось получить ID")
             return
 
-        employee_id = int(employee_id_item.text())
+        try:
+            employee_id = int(employee_id_item.text())
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "Некорректный ID сотрудника")
+            return
 
         reply = QtWidgets.QMessageBox.question(
             self,
@@ -102,12 +120,14 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         if reply == QtWidgets.QMessageBox.Yes:
-            delete_employee_by_id(employee_id)
+            success = delete_employee_by_id(employee_id)
 
-            QtWidgets.QMessageBox.information(self, "Успех", "Сотрудник удалён")
+            if success:
+                QtWidgets.QMessageBox.information(self, "Успех", "Сотрудник удалён")
+            else:
+                QtWidgets.QMessageBox.critical(self, "Ошибка", "Не удалось удалить сотрудника")
 
             self.load_employees()
-
 
     def clear_fields(self):
         self.inputName.clear()

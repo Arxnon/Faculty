@@ -1,4 +1,5 @@
 import sqlite3
+from typing import List, Tuple
 
 DB_FILE = "employee_system.db"
 
@@ -34,20 +35,38 @@ def add_employee(fio, birth_date, position, degree, rank):
     conn.close()
 
 
-def get_all_employees():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+def get_all_employees() -> List[Tuple]:
 
-    cursor.execute("SELECT id, fio, birth_date, position, degree, rank FROM employees")
-    data = cursor.fetchall()
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, fio, birth_date, position, degree, rank FROM employees")
+            data = cursor.fetchall()
+            return data
+    except sqlite3.Error as e:
+        print(f"Ошибка базы данных при получении сотрудников: {e}")
+        return []
+    except Exception as e:
+        print(f"Неожиданная ошибка при получении сотрудников: {e}")
+        return []
 
-    conn.close()
-    return data
 
 def delete_employee_by_id(employee_id):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id))
-    conn.commit()
-    conn.close()
+        cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
+        rows_deleted = cursor.rowcount
+        conn.commit()
+
+        conn.close()
+
+        return rows_deleted > 0
+
+    except sqlite3.Error as e:
+        print(f"Ошибка базы данных при удалении сотрудника {employee_id}: {e}")
+        return False
+    except Exception as e:
+        print(f"Неожиданная ошибка при удалении сотрудника {employee_id}: {e}")
+        return False

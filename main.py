@@ -10,6 +10,8 @@ if __name__ == "__main__":
     if not os.path.exists(DB_FILE):
         create_database(DB_FILE)
         print("БД создана")
+    else:
+        print("БД уже была создана")
 
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()

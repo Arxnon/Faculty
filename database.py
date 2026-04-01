@@ -70,3 +70,32 @@ def delete_employee_by_id(employee_id):
     except Exception as e:
         print(f"Неожиданная ошибка при удалении сотрудника {employee_id}: {e}")
         return False
+
+def search_employees_by_fio(fio: str) -> List[Tuple]:
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, fio, birth_date, position, degree, rank
+                FROM employees
+                WHERE fio LIKE ?
+            """, (f"%{fio}%",))
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Ошибка при поиске: {e}")
+        return []
+
+def update_employee(employee_id, fio, birth_date, position, degree, rank):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE employees
+                SET fio = ?, birth_date = ?, position = ?, degree = ?, rank = ?
+                WHERE id = ?
+            """, (fio, birth_date, position, degree, rank, employee_id))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"Ошибка обновления: {e}")
+        return False

@@ -11,8 +11,9 @@ from database import (
 
 
 class EmployeesTab:
-    def __init__(self, parent):
+    def __init__(self, parent, history_service):
         self.parent = parent
+        self.history = history_service
 
         # Состояние
         self.selected_employee_id = None
@@ -75,6 +76,7 @@ class EmployeesTab:
                     QtWidgets.QTableWidgetItem(str(value))
                 )
 
+        # скрываем ID
         self.tableEmployees.setColumnHidden(0, True)
 
     # ======================
@@ -103,7 +105,7 @@ class EmployeesTab:
         if self.selected_employee_id is not None:
             self.is_dirty = True
 
-    def on_row_change(self, row, column):
+    def on_row_change(self, row,):
         current_row = self.tableEmployees.currentRow()
 
         if self.is_dirty:
@@ -152,6 +154,21 @@ class EmployeesTab:
 
         add_employee(fio, birth_date, position, degree, rank)
 
+        #история
+        self.history.add(
+            "employee",
+            None,
+            "add",
+            None,
+            {
+                "fio": fio,
+                "birth_date": birth_date,
+                "position": position,
+                "degree": degree,
+                "rank": rank
+            }
+        )
+
         QtWidgets.QMessageBox.information(self.parent, "Успех", "Сотрудник добавлен")
 
         self.clear_fields()
@@ -166,9 +183,26 @@ class EmployeesTab:
 
         employee_id = int(self.get_item_text(row, 0))
 
+        old_data = {
+            "fio": self.get_item_text(row, 1),
+            "birth_date": self.get_item_text(row, 2),
+            "position": self.get_item_text(row, 3),
+            "degree": self.get_item_text(row, 4),
+            "rank": self.get_item_text(row, 5),
+        }
+
         success = delete_employee_by_id(employee_id)
 
         if success:
+            #история
+            self.history.add(
+                "employee",
+                employee_id,
+                "delete",
+                old_data,
+                None
+            )
+
             QtWidgets.QMessageBox.information(self.parent, "Успех", "Удалено")
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
@@ -178,6 +212,7 @@ class EmployeesTab:
     def load_employee_to_fields(self, row):
         self.selected_employee_id = int(self.get_item_text(row, 0))
 
+        # блокируем сигналы
         self.inputName.blockSignals(True)
         self.inputBirthDate.blockSignals(True)
         self.inputPosition.blockSignals(True)
@@ -194,6 +229,7 @@ class EmployeesTab:
         self.inputDegree.setText(self.get_item_text(row, 4))
         self.inputRank.setText(self.get_item_text(row, 5))
 
+        # включаем обратно
         self.inputName.blockSignals(False)
         self.inputBirthDate.blockSignals(False)
         self.inputPosition.blockSignals(False)
@@ -205,11 +241,29 @@ class EmployeesTab:
             QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите сотрудника")
             return
 
+        row = self.tableEmployees.currentRow()
+
+        old_data = {
+            "fio": self.get_item_text(row, 1),
+            "birth_date": self.get_item_text(row, 2),
+            "position": self.get_item_text(row, 3),
+            "degree": self.get_item_text(row, 4),
+            "rank": self.get_item_text(row, 5),
+        }
+
         fio = self.inputName.text()
         birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
         position = self.inputPosition.text()
         degree = self.inputDegree.text()
         rank = self.inputRank.text()
+
+        new_data = {
+            "fio": fio,
+            "birth_date": birth_date,
+            "position": position,
+            "degree": degree,
+            "rank": rank,
+        }
 
         success = update_employee(
             self.selected_employee_id,
@@ -221,6 +275,15 @@ class EmployeesTab:
         )
 
         if success:
+            #история
+            self.history.add(
+                "employee",
+                self.selected_employee_id,
+                "update",
+                old_data,
+                new_data
+            )
+
             QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
             self.load_employees()
             self.is_dirty = False

@@ -56,7 +56,6 @@ class EmployeesTab:
     # ======================
     # ВСПОМОГАТЕЛЬНОЕ
     # ======================
-
     def get_item_text(self, row, col):
         item = self.tableEmployees.item(row, col)
         return item.text() if item else ""
@@ -152,22 +151,26 @@ class EmployeesTab:
             )
             return
 
-        add_employee(fio, birth_date, position, degree, rank)
+        # добавляем сотрудника в БД и получаем его ID
+        employee_id = add_employee(fio, birth_date, position, degree, rank)
 
-        #история
+        # история
         self.history.add(
             "employee",
-            None,
+            employee_id,
             "add",
             None,
-            {
+            str({
                 "fio": fio,
                 "birth_date": birth_date,
                 "position": position,
                 "degree": degree,
                 "rank": rank
-            }
+            })
         )
+
+        # обновляем вкладку истории
+        self.parent.history_tab.refresh()
 
         QtWidgets.QMessageBox.information(self.parent, "Успех", "Сотрудник добавлен")
 
@@ -183,18 +186,18 @@ class EmployeesTab:
 
         employee_id = int(self.get_item_text(row, 0))
 
-        old_data = {
+        old_data = str({
             "fio": self.get_item_text(row, 1),
             "birth_date": self.get_item_text(row, 2),
             "position": self.get_item_text(row, 3),
             "degree": self.get_item_text(row, 4),
             "rank": self.get_item_text(row, 5),
-        }
+        })
 
         success = delete_employee_by_id(employee_id)
 
         if success:
-            #история
+            # история
             self.history.add(
                 "employee",
                 employee_id,
@@ -203,11 +206,71 @@ class EmployeesTab:
                 None
             )
 
+            # обновляем вкладку истории
+            self.parent.history_tab.refresh()
+
             QtWidgets.QMessageBox.information(self.parent, "Успех", "Удалено")
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
 
         self.load_employees()
+
+    def update_employee_data(self):
+        if self.selected_employee_id is None:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите сотрудника")
+            return
+
+        row = self.tableEmployees.currentRow()
+
+        old_data = str({
+            "fio": self.get_item_text(row, 1),
+            "birth_date": self.get_item_text(row, 2),
+            "position": self.get_item_text(row, 3),
+            "degree": self.get_item_text(row, 4),
+            "rank": self.get_item_text(row, 5),
+        })
+
+        fio = self.inputName.text()
+        birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
+        position = self.inputPosition.text()
+        degree = self.inputDegree.text()
+        rank = self.inputRank.text()
+
+        new_data = str({
+            "fio": fio,
+            "birth_date": birth_date,
+            "position": position,
+            "degree": degree,
+            "rank": rank,
+        })
+
+        success = update_employee(
+            self.selected_employee_id,
+            fio,
+            birth_date,
+            position,
+            degree,
+            rank
+        )
+
+        if success:
+            # история
+            self.history.add(
+                "employee",
+                self.selected_employee_id,
+                "update",
+                old_data,
+                new_data
+            )
+
+            # обновляем вкладку истории
+            self.parent.history_tab.refresh()
+
+            QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
+            self.load_employees()
+            self.is_dirty = False
+        else:
+            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
 
     def load_employee_to_fields(self, row):
         self.selected_employee_id = int(self.get_item_text(row, 0))
@@ -223,6 +286,7 @@ class EmployeesTab:
 
         date_str = self.get_item_text(row, 2)
         if date_str:
+            from PyQt5.QtCore import QDate
             self.inputBirthDate.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
 
         self.inputPosition.setText(self.get_item_text(row, 3))
@@ -235,60 +299,6 @@ class EmployeesTab:
         self.inputPosition.blockSignals(False)
         self.inputDegree.blockSignals(False)
         self.inputRank.blockSignals(False)
-
-    def update_employee_data(self):
-        if self.selected_employee_id is None:
-            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите сотрудника")
-            return
-
-        row = self.tableEmployees.currentRow()
-
-        old_data = {
-            "fio": self.get_item_text(row, 1),
-            "birth_date": self.get_item_text(row, 2),
-            "position": self.get_item_text(row, 3),
-            "degree": self.get_item_text(row, 4),
-            "rank": self.get_item_text(row, 5),
-        }
-
-        fio = self.inputName.text()
-        birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
-        position = self.inputPosition.text()
-        degree = self.inputDegree.text()
-        rank = self.inputRank.text()
-
-        new_data = {
-            "fio": fio,
-            "birth_date": birth_date,
-            "position": position,
-            "degree": degree,
-            "rank": rank,
-        }
-
-        success = update_employee(
-            self.selected_employee_id,
-            fio,
-            birth_date,
-            position,
-            degree,
-            rank
-        )
-
-        if success:
-            #история
-            self.history.add(
-                "employee",
-                self.selected_employee_id,
-                "update",
-                old_data,
-                new_data
-            )
-
-            QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
-            self.load_employees()
-            self.is_dirty = False
-        else:
-            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
 
     def clear_fields(self):
         self.inputName.clear()

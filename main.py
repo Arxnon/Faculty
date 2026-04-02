@@ -1,19 +1,23 @@
-import sys
-import os
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, uic
+from tabs.employees_tab import EmployeesTab
 
-from MainWindow import MainWindow
-from database import DB_FILE, create_database
+
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        uic.loadUi("main.ui", self)
+
+        try:
+            with open("style.qss", "r", encoding="utf-8") as f:
+                self.setStyleSheet(f.read())
+        except Exception as e:
+            print(e)
+
+        self.employees_tab = EmployeesTab(self)
 
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_FILE):
-        create_database(DB_FILE)
-        print("БД создана")
-    else:
-        print("БД уже была создана")
-
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication([])
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+    app.exec_()

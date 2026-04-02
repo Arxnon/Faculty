@@ -1,78 +1,99 @@
-/* --- Основное окно и виджеты --- */
+/* === ОБЩЕЕ === */
 QWidget {
-    background-color: #f9f9f9;
-    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #f5f7fa;
+    font-family: "Segoe UI", Arial;
     font-size: 13px;
+    color: #2c3e50;
 }
 
-/* --- Кнопки --- */
+/* === КНОПКИ === */
 QPushButton {
-    background-color: #4CAF50;
+    background-color: qlineargradient(
+        spread:pad, x1:0, y1:0, x2:1, y2:1,
+        stop:0 #4facfe, stop:1 #00f2fe
+    );
     color: white;
-    border: 1px solid #4CAF50;
-    border-radius: 5px;
+    border: none;
+    border-radius: 8px;
     padding: 6px 12px;
 }
 QPushButton:hover {
-    background-color: #45a049;
-    border: 1px solid #45a049;
+    background-color: qlineargradient(
+        spread:pad, x1:0, y1:0, x2:1, y2:1,
+        stop:0 #43e97b, stop:1 #38f9d7
+    );
 }
 QPushButton:pressed {
-    background-color: #3e8e41;
+    background-color: #3a7bd5;
 }
 
-/* --- Поля ввода --- */
-QLineEdit, QDateEdit, QSpinBox {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 3px 5px;
+/* Удаление — красная */
+QPushButton#btnDeleteEmp {
+    background-color: #ff6b6b;
 }
-QLineEdit:focus, QDateEdit:focus, QSpinBox:focus {
-    border: 1px solid #4CAF50;
+QPushButton#btnDeleteEmp:hover {
+    background-color: #ff4b4b;
 }
 
-/* --- Таблицы --- */
+/* === ПОЛЯ === */
+QLineEdit, QDateEdit, QSpinBox, QComboBox {
+    background-color: white;
+    border: 1px solid #dcdde1;
+    border-radius: 6px;
+    padding: 4px 6px;
+}
+QLineEdit:focus, QDateEdit:focus, QSpinBox:focus, QComboBox:focus {
+    border: 1px solid #4facfe;
+}
+
+/* === ТАБЛИЦА === */
 QTableWidget {
-    background-color: #ffffff;
-    gridline-color: #ddd;
-    border: none;
+    background-color: white;
+    gridline-color: #ecf0f1;
+    border-radius: 6px;
+}
+QTableWidget::item:selected {
+    background-color: #4facfe;
+    color: white;
 }
 QHeaderView::section {
-    background-color: #f2f2f2;
-    padding: 4px;
-    border: 1px solid #ddd;
+    background-color: #eef2f7;
+    border: none;
+    padding: 6px;
     font-weight: bold;
 }
 
-/* --- Вкладки --- */
+/* === ВКЛАДКИ === */
 QTabWidget::pane {
-    border: 1px solid #ccc;
-    padding: 5px;
-    border-radius: 4px;
+    border: none;
 }
 QTabBar::tab {
-    background: #e0e0e0;
-    padding: 6px 12px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    background: #dfe6e9;
+    padding: 8px 14px;
+    border-radius: 6px;
+    margin: 2px;
 }
 QTabBar::tab:selected {
-    background: #ffffff;
-    font-weight: bold;
+    background: #4facfe;
+    color: white;
 }
 QTabBar::tab:hover {
-    background: #d0d0d0;
+    background: #74b9ff;
+    color: white;
 }
 
-/* --- Чекбоксы --- */
+/* === ЧЕКБОКС === */
 QCheckBox {
-    spacing: 5px;
+    spacing: 6px;
 }
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    background: white;
 }
 QCheckBox::indicator:checked {
-    background-color: #4CAF50;
-    border: 1px solid #4CAF50;
+    background-color: #4facfe;
+    border: 1px solid #4facfe;
 }

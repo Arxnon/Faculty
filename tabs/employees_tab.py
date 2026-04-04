@@ -235,6 +235,15 @@ class EmployeesTab:
         degree = self.inputDegree.text()
         rank = self.inputRank.text()
 
+        #ВАЛИДАЦИЯ
+        if not fio.strip() or fio.strip().isdigit():
+            QtWidgets.QMessageBox.warning(
+                self.parent,
+                "Ошибка",
+                "ФИО не может быть пустым или состоять только из пробелов и/или цифр"
+            )
+            return
+
         new_data = str({
             "fio": fio,
             "birth_date": birth_date,
@@ -253,7 +262,6 @@ class EmployeesTab:
         )
 
         if success:
-            # история
             self.history.add(
                 "employee",
                 self.selected_employee_id,
@@ -262,7 +270,6 @@ class EmployeesTab:
                 new_data
             )
 
-            # обновляем вкладку истории
             self.parent.history_tab.refresh()
 
             QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")

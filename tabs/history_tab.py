@@ -25,10 +25,8 @@ class HistoryTab(QtWidgets.QWidget):
             "Время"
         ])
 
-        # 🔥 ВАЖНО: сохраняем header в переменную
         header = self.tableWidget.horizontalHeader()
 
-        # 👉 убирает ВСЕ предупреждения IDE
         if header is not None:
             header.setStretchLastSection(True)
 
@@ -45,9 +43,7 @@ class HistoryTab(QtWidgets.QWidget):
         # Загружаем данные
         self.load_history()
 
-    # ======================
     # Загрузка истории
-    # ======================
     def load_history(self):
         rows = self.history_service.get_history()
 
@@ -65,8 +61,5 @@ class HistoryTab(QtWidgets.QWidget):
         # авто-высота строк
         self.tableWidget.resizeRowsToContents()
 
-    # ======================
-    # Обновление
-    # ======================
     def refresh(self):
         self.load_history()

@@ -24,6 +24,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.history_tab = HistoryTab(self.history_service)
         self.tabWidget.addTab(self.history_tab, "История изменений")
 
+    def closeEvent(self, event):
+        print("closeEvent called")
+
+        msg = QtWidgets.QMessageBox(self)
+        msg.setWindowTitle("Подтверждение выхода")
+
+        if self.employees_tab.is_dirty:
+            msg.setText("У вас есть несохранённые изменения. Выйти?")
+        else:
+            msg.setText("Вы действительно хотите выйти?")
+
+        msg.setStandardButtons(
+            QtWidgets.QMessageBox.Yes |
+            QtWidgets.QMessageBox.No
+        )
+
+        reply = msg.exec_()
+
+        if reply == QtWidgets.QMessageBox.Yes:
+            event.accept()
+        else:
+            event.ignore()
+
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
     window = MainWindow()

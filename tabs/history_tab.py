@@ -1,7 +1,6 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 
-
 class HistoryTab(QtWidgets.QWidget):
     def __init__(self, history_service):
         super().__init__()
@@ -13,6 +12,9 @@ class HistoryTab(QtWidgets.QWidget):
         # Таблица
         self.tableWidget = QtWidgets.QTableWidget()
         self.layout.addWidget(self.tableWidget)
+
+        #Сортировка
+        self.tableWidget.setSortingEnabled(True)  
 
         # Колонки
         self.tableWidget.setColumnCount(6)

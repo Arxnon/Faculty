@@ -1,4 +1,6 @@
 from PyQt5 import QtWidgets
+import rust_core
+from PyQt5.QtGui import QTextDocument, QTextCursor, QColor, QTextCharFormat
 
 from database import (
     add_employee,

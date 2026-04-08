@@ -1,7 +1,4 @@
 from PyQt5 import QtWidgets
-import rust_core
-from PyQt5.QtGui import QTextDocument, QTextCursor, QColor, QTextCharFormat
-
 from database import (
     add_employee,
     get_all_employees,
@@ -307,6 +304,10 @@ class EmployeesTab:
         self.inputPosition.blockSignals(False)
         self.inputDegree.blockSignals(False)
         self.inputRank.blockSignals(False)
+
+    # ======================
+    # RUST
+    # ======================
 
     def clear_fields(self):
         self.inputName.clear()

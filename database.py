@@ -76,6 +76,18 @@ def add_publication(title, journal, level, pages, pub_type):
 
     return pub_id
 
+def link_employee_publication(employee_id, publication_id, author_order):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO employee_publications (employee_id, publication_id, author_order)
+        VALUES (?, ?, ?)
+    """, (employee_id, publication_id, author_order))
+
+    conn.commit()
+    conn.close()
+
 def get_all_employees() -> List[Tuple]:
 
     try:

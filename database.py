@@ -48,18 +48,6 @@ def create_database(db_file):
     conn.commit()
     conn.close()
 
-def add_employee(fio, birth_date, position, degree, rank):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    INSERT INTO employees (fio, birth_date, position, degree, rank)
-    VALUES (?, ?, ?, ?, ?)
-    """, (fio, birth_date, position, degree, rank))
-
-    conn.commit()
-    conn.close()
-
 def add_publication(title, journal, level, pages, pub_type):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -149,6 +137,18 @@ def get_authors_by_publication(publication_id):
     except Exception as e:
         print(f"Ошибка: {e}")
         return []
+
+def add_employee(fio, birth_date, position, degree, rank):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO employees (fio, birth_date, position, degree, rank)
+    VALUES (?, ?, ?, ?, ?)
+    """, (fio, birth_date, position, degree, rank))
+
+    conn.commit()
+    conn.close()
 
 def delete_employee_by_id(employee_id):
     try:

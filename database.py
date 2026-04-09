@@ -60,6 +60,21 @@ def add_employee(fio, birth_date, position, degree, rank):
     conn.commit()
     conn.close()
 
+def add_publication(title, journal, level, pages, pub_type):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO publications (title, journal, level, pages, publication_type)
+        VALUES (?, ?, ?, ?, ?)
+    """, (title, journal, level, pages, pub_type))
+
+    pub_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+
+    return pub_id
 
 def get_all_employees() -> List[Tuple]:
 

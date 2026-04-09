@@ -8,6 +8,7 @@ def create_database(db_file):
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
+    #Сотрудники
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS employees (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,6 +17,31 @@ def create_database(db_file):
         position TEXT,
         degree TEXT,
         rank TEXT
+    )
+    """)
+
+    #Публикации
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS publications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        journal TEXT,
+        level TEXT,
+        pages INTEGER,
+        publication_type TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    #связь many-to-many
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS employee_publications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER,
+        publication_id INTEGER,
+        author_order INTEGER,
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+        FOREIGN KEY (publication_id) REFERENCES publications(id) ON DELETE CASCADE
     )
     """)
 

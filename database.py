@@ -133,6 +133,23 @@ def get_publications_by_employee(employee_id):
         print(f"Ошибка: {e}")
         return []
 
+def get_authors_by_publication(publication_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT e.fio, ep.author_order
+                FROM employees e
+                JOIN employee_publications ep 
+                    ON e.id = ep.employee_id
+                WHERE ep.publication_id = ?
+                ORDER BY ep.author_order
+            """, (publication_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка: {e}")
+        return []
+
 def delete_employee_by_id(employee_id):
     try:
         conn = sqlite3.connect(DB_FILE)

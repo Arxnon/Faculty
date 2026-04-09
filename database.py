@@ -88,6 +88,19 @@ def link_employee_publication(employee_id, publication_id, author_order):
     conn.commit()
     conn.close()
 
+def get_all_publications():
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, title, journal, level, pages, publication_type
+                FROM publications
+            """)
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка получения публикаций: {e}")
+        return []
+
 def get_all_employees() -> List[Tuple]:
 
     try:

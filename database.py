@@ -116,6 +116,22 @@ def get_all_employees() -> List[Tuple]:
         print(f"Неожиданная ошибка при получении сотрудников: {e}")
         return []
 
+def get_publications_by_employee(employee_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT p.id, p.title, p.journal
+                FROM publications p
+                JOIN employee_publications ep 
+                    ON p.id = ep.publication_id
+                WHERE ep.employee_id = ?
+                ORDER BY ep.author_order
+            """, (employee_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка: {e}")
+        return []
 
 def delete_employee_by_id(employee_id):
     try:

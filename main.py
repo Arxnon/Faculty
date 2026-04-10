@@ -2,7 +2,7 @@ from PyQt5 import QtWidgets, uic
 from tabs.employees_tab import EmployeesTab
 from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
-
+from tabs.publications_tab import PublicationsTab
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -19,6 +19,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Подключаем вкладку сотрудники
         self.employees_tab = EmployeesTab(self, self.history_service)
+
+        # Подключение публикаций
+        self.publications_tab = PublicationsTab(self, self.history_service)
 
         #Подключение истории
         self.history_tab = HistoryTab(self.history_service)

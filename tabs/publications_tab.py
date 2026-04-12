@@ -4,7 +4,6 @@ from database import (
     add_publication
 )
 
-
 class PublicationsTab:
     def __init__(self, parent, history_service):
         self.parent = parent

@@ -23,11 +23,11 @@ def create_database(db_file):
     conn.commit()
     conn.close()
 
-def ensure_publications_table():
+def ensure_publications_schema():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # создаём таблицу если её нет
+    # таблица публикаций
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS publications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,23 +38,44 @@ def ensure_publications_table():
     )
     """)
 
-    # пробуем добавить колонку (если её нет)
-    try:
-        cursor.execute("ALTER TABLE publications ADD COLUMN publication_type TEXT")
-    except:
-        pass  # уже есть
+    # добавляем недостающие колонки
+    columns = [
+        ("publication_type", "TEXT"),
+        ("pub_date", "TEXT")
+    ]
+
+    for col, col_type in columns:
+        try:
+            cursor.execute(f"ALTER TABLE publications ADD COLUMN {col} {col_type}")
+        except:
+            pass
 
     conn.commit()
     conn.close()
 
-def add_publication(title, journal, level, pages, pub_type):
+def ensure_employee_publications():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO publications (title, journal, level, pages, publication_type)
-        VALUES (?, ?, ?, ?, ?)
-    """, (title, journal, level, pages, pub_type))
+    CREATE TABLE IF NOT EXISTS employee_publications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER,
+        publication_id INTEGER
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+def add_publication(title, journal, level, pages, pub_type, pub_date):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO publications (title, journal, level, pages, publication_type, pub_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (title, journal, level, pages, pub_type, pub_date))
 
     pub_id = cursor.lastrowid
 
@@ -63,14 +84,14 @@ def add_publication(title, journal, level, pages, pub_type):
 
     return pub_id
 
-def link_employee_publication(employee_id, publication_id, author_order):
+def link_employee_publication(employee_id, publication_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO employee_publications (employee_id, publication_id, author_order)
-        VALUES (?, ?, ?)
-    """, (employee_id, publication_id, author_order))
+        INSERT INTO employee_publications (employee_id, publication_id)
+        VALUES (?, ?)
+    """, (employee_id, publication_id))
 
     conn.commit()
     conn.close()
@@ -79,11 +100,27 @@ def get_all_publications():
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
+
             cursor.execute("""
-                SELECT id, title, journal, level, pages, publication_type
-                FROM publications
+                SELECT 
+                    p.id,
+                    p.title,
+                    p.journal,
+                    p.level,
+                    p.pages,
+                    p.publication_type,
+                    p.pub_date,
+                    GROUP_CONCAT(e.fio, '; ')
+                FROM publications p
+                LEFT JOIN employee_publications ep 
+                    ON p.id = ep.publication_id
+                LEFT JOIN employees e 
+                    ON ep.employee_id = e.id
+                GROUP BY p.id
             """)
+
             return cursor.fetchall()
+
     except Exception as e:
         print(f"Ошибка получения публикаций: {e}")
         return []

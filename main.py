@@ -3,6 +3,9 @@ from tabs.employees_tab import EmployeesTab
 from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
 from tabs.publications_tab import PublicationsTab
+from database import ensure_publications_table
+
+ensure_publications_table()
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):

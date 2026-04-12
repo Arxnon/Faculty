@@ -20,30 +20,29 @@ def create_database(db_file):
     )
     """)
 
-    #Публикации
+    conn.commit()
+    conn.close()
+
+def ensure_publications_table():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    # создаём таблицу если её нет
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS publications (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
+        title TEXT,
         journal TEXT,
         level TEXT,
-        pages INTEGER,
-        publication_type TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        pages INTEGER
     )
     """)
 
-    #связь many-to-many
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS employee_publications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER,
-        publication_id INTEGER,
-        author_order INTEGER,
-        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
-        FOREIGN KEY (publication_id) REFERENCES publications(id) ON DELETE CASCADE
-    )
-    """)
+    # пробуем добавить колонку (если её нет)
+    try:
+        cursor.execute("ALTER TABLE publications ADD COLUMN publication_type TEXT")
+    except:
+        pass  # уже есть
 
     conn.commit()
     conn.close()

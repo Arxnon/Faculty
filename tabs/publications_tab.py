@@ -45,9 +45,17 @@ class PublicationsTab:
 
     def fill_table(self, data):
         self.table.setRowCount(len(data))
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(8)
+
         self.table.setHorizontalHeaderLabels([
-            "ID", "Название", "Журнал", "Уровень", "Страницы", "Тип"
+            "ID",
+            "Название",
+            "Издание",
+            "Уровень",
+            "Страницы",
+            "Тип",
+            "Дата",
+            "Авторы"
         ])
 
         for row_idx, row_data in enumerate(data):
@@ -55,7 +63,7 @@ class PublicationsTab:
                 self.table.setItem(
                     row_idx,
                     col_idx,
-                    QtWidgets.QTableWidgetItem(str(value))
+                    QtWidgets.QTableWidgetItem(str(value) if value else "")
                 )
 
         # скрываем ID
@@ -96,6 +104,7 @@ class PublicationsTab:
         level = self.comboLevel.currentText()
         pages = self.inputPages.value()
         pub_type = self.comboType.currentText()
+        pub_date = self.parent.inputPubDate.date().toString("yyyy-MM-dd")
 
         if not title.strip():
             QtWidgets.QMessageBox.warning(
@@ -106,7 +115,14 @@ class PublicationsTab:
             return
 
         # добавляем в БД
-        pub_id = add_publication(title, journal, level, pages, pub_type)
+        pub_id = add_publication(
+            title,
+            journal,
+            level,
+            pages,
+            pub_type,
+            pub_date
+        )
 
         # история
         self.history.add(

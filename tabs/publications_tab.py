@@ -145,12 +145,11 @@ class PublicationsTab:
 
         employees = get_all_employees()
 
-        for emp in employees:
-            emp_id = emp[0]
-            fio = emp[1]
-
-            if fio in authors_list:
-                link_employee_publication(emp_id, pub_id)
+        for author in authors_list:
+            for emp in employees:
+                if emp[1] == author:
+                    link_employee_publication(emp[0], pub_id)
+                    break  # ← ВАЖНО: только первый найденный. Проверка на дубликаты дескать
 
         # история
         self.history.add(

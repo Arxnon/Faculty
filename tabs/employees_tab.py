@@ -213,6 +213,7 @@ class EmployeesTab:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
 
         self.load_employees()
+        self.parent.publications_tab.load_publications()
 
     def update_employee_data(self):
         if self.selected_employee_id is None:
@@ -277,6 +278,7 @@ class EmployeesTab:
             self.is_dirty = False
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
+        self.parent.publications_tab.load_publications()
 
     def load_employee_to_fields(self, row):
         self.selected_employee_id = int(self.get_item_text(row, 0))

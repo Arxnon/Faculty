@@ -174,6 +174,7 @@ class EmployeesTab:
 
         self.clear_fields()
         self.load_employees()
+        self.parent.publications_tab.refresh_authors_list()
 
     def delete_employee(self):
         row = self.tableEmployees.currentRow()

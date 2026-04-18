@@ -1,6 +1,4 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QCompleter
-from database import get_all_employees
 from database import (
     get_all_publications,
     add_publication
@@ -32,7 +30,7 @@ class PublicationsTab:
         self.search.textChanged.connect(self.search_publications)
 
         #Список авторов
-        self.setup_authors_autocomplete()
+        self.refresh_authors_list()
 
         # кнопки
         parent.btnAddPub.clicked.connect(self.add_publication)
@@ -89,18 +87,6 @@ class PublicationsTab:
     # ======================
     # ЗАГРУЗКА
     # ======================
-
-    def setup_authors_autocomplete(self):
-        employees = get_all_employees()
-
-        # список ФИО
-        fio_list = [emp[1] for emp in employees]
-
-        completer = QCompleter(fio_list)
-        completer.setCaseSensitivity(False)
-
-        self.parent.inputAuthors.setCompleter(completer)
-
     def load_publications(self):
         data = get_all_publications()
         self.fill_table(data)

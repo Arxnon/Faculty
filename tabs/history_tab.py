@@ -1,20 +1,43 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 
+
 class HistoryTab(QtWidgets.QWidget):
     def __init__(self, history_service):
         super().__init__()
         self.history_service = history_service
 
-        # Layout
+        # MAIN LAYOUT
         self.layout = QtWidgets.QVBoxLayout(self)
 
-        # Таблица
+        # TOP PANEL (СЛАЙДЕР)
+        top_layout = QtWidgets.QHBoxLayout()
+
+        # Отталкиваем вправо
+        top_layout.addStretch()
+
+        # Подпись (необязательно)
+        self.zoomLabel = QtWidgets.QLabel("Масштаб")
+        top_layout.addWidget(self.zoomLabel)
+
+        # Слайдер
+        self.zoomSlider = QtWidgets.QSlider(Qt.Horizontal)
+        self.zoomSlider.setMinimum(8)
+        self.zoomSlider.setMaximum(20)
+        self.zoomSlider.setValue(12)
+        self.zoomSlider.setFixedWidth(150)
+
+        top_layout.addWidget(self.zoomSlider)
+
+        # Добавляем верхнюю панель
+        self.layout.addLayout(top_layout)
+
+        #Таблица
         self.tableWidget = QtWidgets.QTableWidget()
         self.layout.addWidget(self.tableWidget)
 
-        #Сортировка
-        self.tableWidget.setSortingEnabled(True)  
+        # Сортировка
+        self.tableWidget.setSortingEnabled(True)
 
         # Колонки
         self.tableWidget.setColumnCount(6)
@@ -42,10 +65,19 @@ class HistoryTab(QtWidgets.QWidget):
         # Перенос текста
         self.tableWidget.setWordWrap(True)
 
+        self.zoomSlider.valueChanged.connect(self.change_zoom)
+
         # Загружаем данные
         self.load_history()
 
-    # Загрузка истории
+    def change_zoom(self, value):
+        font = self.tableWidget.font()
+        font.setPointSize(value)
+        self.tableWidget.setFont(font)
+
+        # обновляем высоту строк
+        self.tableWidget.resizeRowsToContents()
+
     def load_history(self):
         rows = self.history_service.get_history()
 
@@ -62,6 +94,7 @@ class HistoryTab(QtWidgets.QWidget):
 
         # авто-высота строк
         self.tableWidget.resizeRowsToContents()
+
 
     def refresh(self):
         self.load_history()

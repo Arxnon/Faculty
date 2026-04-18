@@ -124,6 +124,20 @@ class PublicationsTab:
             pub_date
         )
 
+        from database import get_all_employees, link_employee_publication
+
+        authors_text = self.parent.inputAuthors.text()
+        authors_list = [a.strip() for a in authors_text.split(";")]
+
+        employees = get_all_employees()
+
+        for emp in employees:
+            emp_id = emp[0]
+            fio = emp[1]
+
+            if fio in authors_list:
+                link_employee_publication(emp_id, pub_id)
+
         # история
         self.history.add(
             "publication",

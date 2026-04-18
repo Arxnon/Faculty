@@ -44,6 +44,18 @@ class PublicationsTab:
     # ВСПОМОГАТЕЛЬНОЕ
     # ======================
 
+    def refresh_authors_list(self):
+        from database import get_all_employees
+        from PyQt5.QtWidgets import QCompleter
+
+        employees = get_all_employees()
+        fio_list = [emp[1] for emp in employees]
+
+        completer = QCompleter(fio_list)
+        completer.setCaseSensitivity(False)
+
+        self.parent.inputAuthors.setCompleter(completer)
+
     def get_item_text(self, row, col):
         item = self.table.item(row, col)
         return item.text() if item else ""

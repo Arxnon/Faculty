@@ -84,6 +84,30 @@ def add_publication(title, journal, level, pages, pub_type, pub_date):
 
     return pub_id
 
+def delete_publication_by_id(publication_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            # удаляем связи
+            cursor.execute("""
+                DELETE FROM employee_publications
+                WHERE publication_id = ?
+            """, (publication_id,))
+
+            # удаляем саму публикацию
+            cursor.execute("""
+                DELETE FROM publications
+                WHERE id = ?
+            """, (publication_id,))
+
+            conn.commit()
+            return True
+
+    except Exception as e:
+        print(f"Ошибка удаления публикации: {e}")
+        return False
+
 def link_employee_publication(employee_id, publication_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()

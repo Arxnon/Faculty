@@ -1,7 +1,8 @@
 from PyQt5 import QtWidgets
 from database import (
     get_all_publications,
-    add_publication
+    add_publication,
+    delete_publication_by_id
 )
 
 class PublicationsTab:
@@ -34,6 +35,7 @@ class PublicationsTab:
 
         # кнопки
         parent.btnAddPub.clicked.connect(self.add_publication)
+        self.parent.btnDeletePub.clicked.connect(self.delete_publication)
 
         # загрузка
         self.load_publications()
@@ -174,8 +176,52 @@ class PublicationsTab:
         self.clear_fields()
         self.load_publications()
 
+    def delete_publication(self):
+        row = self.table.currentRow()
 
+        if row == -1:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
+            return
 
+        publication_id = int(self.get_item_text(row, 0))
+
+        old_data = str({
+            "title": self.get_item_text(row, 1),
+            "journal": self.get_item_text(row, 2),
+            "level": self.get_item_text(row, 3),
+            "pages": self.get_item_text(row, 4),
+            "type": self.get_item_text(row, 5),
+            "date": self.get_item_text(row, 6),
+            "authors": self.get_item_text(row, 7),
+        })
+
+        success = delete_publication_by_id(publication_id)
+
+        reply = QtWidgets.QMessageBox.question(
+            self.parent,
+            "Подтверждение",
+            "Вы действительно хотите удалить эту публикацию?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+        if success:
+            self.history.add(
+                "publication",
+                publication_id,
+                "delete",
+                old_data,
+                None
+            )
+
+            self.parent.history_tab.refresh()
+
+            QtWidgets.QMessageBox.information(self.parent, "Успех", "Публикация удалена")
+            self.load_publications()
+        else:
+            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
 
     # ======================
     # ОЧИСТКА

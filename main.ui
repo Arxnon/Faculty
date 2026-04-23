@@ -119,11 +119,32 @@
           </item>
           <item><widget class="QPushButton" name="btnFilePub"><property name="text"><string>Прикрепить файл</string></property></widget></item>
           <item>
-           <layout class="QHBoxLayout">
-            <item><widget class="QPushButton" name="btnAddPub"><property name="text"><string>Добавить</string></property></widget></item>
-            <item><widget class="QPushButton" name="btnDeletePub"><property name="text"><string>Удалить</string></property></widget></item>
-           </layout>
-          </item>
+             <layout class="QHBoxLayout">
+              <item>
+               <widget class="QPushButton" name="btnAddPub">
+                <property name="text">
+                 <string>Добавить</string>
+                </property>
+               </widget>
+              </item>
+
+              <item>
+               <widget class="QPushButton" name="btnUpdatePub">
+                <property name="text">
+                 <string>Обновить</string>
+                </property>
+               </widget>
+              </item>
+
+              <item>
+               <widget class="QPushButton" name="btnDeletePub">
+                <property name="text">
+                 <string>Удалить</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
          </layout>
         </item>
        </layout>

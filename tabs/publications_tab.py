@@ -1,10 +1,30 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QCompleter
+from PyQt5.QtCore import Qt
 from database import (
     get_all_publications,
     add_publication,
     delete_publication_by_id,
-    update_publication
+    update_publication,
+    get_all_employees
 )
+
+class MultiCompleter(QCompleter):
+    def splitPath(self, path):
+        return (path or "").split(";")[-1].strip()
+
+    def pathFromIndex(self, index):
+        widget = self.widget()
+        if widget is None:
+            return index.data()
+
+        text = widget.text() or ""
+        parts = text.split(";")
+
+        if len(parts) > 1:
+            return "; ".join([p.strip() for p in parts[:-1]]) + "; " + index.data()
+        else:
+            return index.data()
 
 class PublicationsTab:
     def __init__(self, parent, history_service):
@@ -52,14 +72,12 @@ class PublicationsTab:
     # ======================
 
     def refresh_authors_list(self):
-        from database import get_all_employees
-        from PyQt5.QtWidgets import QCompleter
-
         employees = get_all_employees()
         fio_list = [emp[1] for emp in employees]
 
-        completer = QCompleter(fio_list)
-        completer.setCaseSensitivity(False)
+        completer = MultiCompleter(fio_list)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
 
         self.parent.inputAuthors.setCompleter(completer)
 

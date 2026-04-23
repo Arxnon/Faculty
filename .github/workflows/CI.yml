@@ -36,7 +36,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
-        id: py
         with:
           python-version: "3.12"
 
@@ -45,11 +44,9 @@ jobs:
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
-        env:
-          PYO3_PYTHON: ${{ steps.py.outputs.python-path }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
@@ -76,20 +73,17 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
-        id: py
         with:
           python-version: "3.12"
 
-      - name: Build wheels
+      - name: Build wheels (musllinux)
         uses: PyO3/maturin-action@v1
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
-        env:
-          PYO3_PYTHON: ${{ steps.py.outputs.python-path }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
@@ -117,7 +111,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
-        id: py
         with:
           python-version: "3.12"
           architecture: ${{ matrix.platform.python_arch }}
@@ -127,10 +120,8 @@ jobs:
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        env:
-          PYO3_PYTHON: python
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
@@ -153,7 +144,6 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
-        id: py
         with:
           python-version: "3.12"
 
@@ -162,10 +152,8 @@ jobs:
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist
+          args: --release --out dist --find-interpreter
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        env:
-          PYO3_PYTHON: ${{ steps.py.outputs.python-path }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6
@@ -190,8 +178,6 @@ jobs:
           working-directory: rust_core
           command: sdist
           args: --out dist
-        env:
-          PYO3_PYTHON: python
 
       - name: Upload sdist
         uses: actions/upload-artifact@v6

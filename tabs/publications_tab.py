@@ -174,6 +174,9 @@ class PublicationsTab:
         self.clear_fields()
         self.load_publications()
 
+
+
+
     # ======================
     # ОЧИСТКА
     # ======================

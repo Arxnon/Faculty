@@ -35,7 +35,6 @@ class HistoryTab(QtWidgets.QWidget):
         #Таблица
         self.tableWidget = QtWidgets.QTableWidget()
         self.layout.addWidget(self.tableWidget)
-        self.base_font = self.tableWidget.font()
 
         # Сортировка
         self.tableWidget.setSortingEnabled(True)
@@ -72,13 +71,16 @@ class HistoryTab(QtWidgets.QWidget):
         self.load_history()
 
     def change_zoom(self, value):
-        value = max(8, min(value, 20))
-        font = self.base_font
-        font.setPointSize(value)
-        self.tableWidget.setFont(font)
-
+        style = f"""
+            QTableWidget {{
+                font-size: {value}pt;
+            }}
+            QHeaderView::section {{
+                font-size: {value}pt;
+            }}
+        """
+        self.tableWidget.setStyleSheet(style)
         self.tableWidget.resizeRowsToContents()
-        self.tableWidget.viewport().update()
 
     def load_history(self):
         rows = self.history_service.get_history()

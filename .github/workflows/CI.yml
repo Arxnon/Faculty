@@ -32,6 +32,7 @@ jobs:
             target: s390x
           - runner: ubuntu-22.04
             target: ppc64le
+
     steps:
       - uses: actions/checkout@v6
 
@@ -41,10 +42,12 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          PYO3_PYTHON: python3.12
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --interpreter python3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: auto
 
@@ -53,6 +56,7 @@ jobs:
         with:
           name: wheels-linux-${{ matrix.platform.target }}
           path: dist
+
 
   musllinux:
     runs-on: ${{ matrix.platform.runner }}
@@ -67,6 +71,7 @@ jobs:
             target: aarch64
           - runner: ubuntu-22.04
             target: armv7
+
     steps:
       - uses: actions/checkout@v6
 
@@ -76,10 +81,12 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          PYO3_PYTHON: python3.12
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --interpreter python3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
           manylinux: musllinux_1_2
 
@@ -88,6 +95,7 @@ jobs:
         with:
           name: wheels-musllinux-${{ matrix.platform.target }}
           path: dist
+
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
@@ -103,6 +111,7 @@ jobs:
           - runner: windows-11-arm
             target: aarch64
             python_arch: arm64
+
     steps:
       - uses: actions/checkout@v6
 
@@ -113,10 +122,12 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          PYO3_PYTHON: python3.12
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --interpreter python3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - name: Upload wheels
@@ -124,6 +135,7 @@ jobs:
         with:
           name: wheels-windows-${{ matrix.platform.target }}
           path: dist
+
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
@@ -134,6 +146,7 @@ jobs:
             target: x86_64
           - runner: macos-latest
             target: aarch64
+
     steps:
       - uses: actions/checkout@v6
 
@@ -143,10 +156,12 @@ jobs:
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
+        env:
+          PYO3_PYTHON: python3.12
         with:
           working-directory: rust_core
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist --find-interpreter --interpreter python3.12
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
       - name: Upload wheels
@@ -155,8 +170,10 @@ jobs:
           name: wheels-macos-${{ matrix.platform.target }}
           path: dist
 
+
   sdist:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v6
 
@@ -166,6 +183,8 @@ jobs:
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
+        env:
+          PYO3_PYTHON: python3.12
         with:
           working-directory: rust_core
           command: sdist
@@ -177,11 +196,13 @@ jobs:
           name: wheels-sdist
           path: dist
 
+
   release:
     name: Release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
     needs: [linux, musllinux, windows, macos, sdist]
+
     permissions:
       id-token: write
       contents: write

@@ -2,7 +2,8 @@ from PyQt5 import QtWidgets
 from database import (
     get_all_publications,
     add_publication,
-    delete_publication_by_id
+    delete_publication_by_id,
+    update_publication
 )
 
 class PublicationsTab:
@@ -36,6 +37,12 @@ class PublicationsTab:
         # кнопки
         parent.btnAddPub.clicked.connect(self.add_publication)
         self.parent.btnDeletePub.clicked.connect(self.delete_publication)
+
+        self.selected_publication_id = None
+
+        self.table.cellClicked.connect(self.on_row_change)
+
+        self.parent.btnUpdatePub.clicked.connect(self.update_publication_data)
 
         # загрузка
         self.load_publications()
@@ -85,6 +92,22 @@ class PublicationsTab:
 
         # скрываем ID
         self.table.setColumnHidden(0, True)
+
+    def on_row_change(self, row):
+        self.selected_publication_id = int(self.get_item_text(row, 0))
+
+        self.parent.inputPubTitle.setText(self.get_item_text(row, 1))
+        self.parent.inputJournal.setText(self.get_item_text(row, 2))
+        self.parent.comboLevel.setCurrentText(self.get_item_text(row, 3))
+        self.parent.inputPages.setValue(int(self.get_item_text(row, 4)))
+        self.parent.comboType.setCurrentText(self.get_item_text(row, 5))
+
+        from PyQt5.QtCore import QDate
+        date_str = self.get_item_text(row, 6)
+        if date_str:
+            self.parent.inputPubDate.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
+
+        self.parent.inputAuthors.setText(self.get_item_text(row, 7))
 
     # ======================
     # ЗАГРУЗКА
@@ -222,6 +245,63 @@ class PublicationsTab:
             self.load_publications()
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
+
+    def update_publication_data(self):
+        if self.selected_publication_id is None:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
+            return
+
+        row = self.table.currentRow()
+
+        old_data = str({
+            "title": self.get_item_text(row, 1),
+            "journal": self.get_item_text(row, 2),
+            "level": self.get_item_text(row, 3),
+            "pages": self.get_item_text(row, 4),
+            "type": self.get_item_text(row, 5),
+            "date": self.get_item_text(row, 6),
+            "authors": self.get_item_text(row, 7),
+        })
+
+        title = self.parent.inputPubTitle.text()
+        journal = self.parent.inputJournal.text()
+        level = self.parent.comboLevel.currentText()
+        pages = self.parent.inputPages.value()
+        pub_type = self.parent.comboType.currentText()
+        pub_date = self.parent.inputPubDate.date().toString("yyyy-MM-dd")
+
+        success = update_publication(
+            self.selected_publication_id,
+            title,
+            journal,
+            level,
+            pages,
+            pub_type,
+            pub_date
+        )
+
+        if success:
+            self.history.add(
+                "publication",
+                self.selected_publication_id,
+                "update",
+                old_data,
+                str({
+                    "title": title,
+                    "journal": journal,
+                    "level": level,
+                    "pages": pages,
+                    "type": pub_type,
+                    "date": pub_date,
+                })
+            )
+
+            self.parent.history_tab.refresh()
+            self.load_publications()
+
+            QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
+        else:
+            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
 
     # ======================
     # ОЧИСТКА

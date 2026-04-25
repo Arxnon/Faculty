@@ -11,20 +11,24 @@ from database import (
 
 class MultiCompleter(QCompleter):
     def splitPath(self, path):
-        return (path or "").split(";")[-1].strip()
+        return [(path or "").split(";")[-1].strip()]
 
     def pathFromIndex(self, index):
         widget = self.widget()
         if widget is None:
-            return index.data()
+            return ""
 
         text = widget.text() or ""
         parts = text.split(";")
 
+        value = index.data()
+        if value is None:
+            return text
+
         if len(parts) > 1:
-            return "; ".join([p.strip() for p in parts[:-1]]) + "; " + index.data()
+            return "; ".join([p.strip() for p in parts[:-1]]) + "; " + value
         else:
-            return index.data()
+            return value
 
 class PublicationsTab:
     def __init__(self, parent, history_service):

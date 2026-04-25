@@ -303,3 +303,15 @@ def get_publication_file(pub_id):
     except Exception as e:
         print(f"Ошибка получения файла: {e}")
         return None
+
+def clear_publication_authors(publication_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                DELETE FROM employee_publications
+                WHERE publication_id = ?
+            """, (publication_id,))
+            conn.commit()
+    except Exception as e:
+        print(f"Ошибка очистки авторов: {e}")

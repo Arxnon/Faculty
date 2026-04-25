@@ -276,3 +276,30 @@ def update_employee(employee_id, fio, birth_date, position, degree, rank):
     except Exception as e:
         print(f"Ошибка обновления: {e}")
         return False
+
+def update_publication_file(pub_id, file_path):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE publications
+                SET file_path = ?
+                WHERE id = ?
+            """, (file_path, pub_id))
+            conn.commit()
+    except Exception as e:
+        print(f"Ошибка сохранения файла: {e}")
+
+
+def get_publication_file(pub_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT file_path FROM publications WHERE id = ?
+            """, (pub_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
+    except Exception as e:
+        print(f"Ошибка получения файла: {e}")
+        return None

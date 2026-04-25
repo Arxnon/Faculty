@@ -1,12 +1,18 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QCompleter
+from PyQt5.QtCore import QDate
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QCompleter
+from services.file_service import FileService
 from database import (
     get_all_publications,
     add_publication,
     delete_publication_by_id,
     update_publication,
-    get_all_employees
+    get_publication_file,
+    update_publication_file,
+    clear_publication_authors,
+    get_all_employees,
+    link_employee_publication
 )
 
 class MultiCompleter(QCompleter):
@@ -62,11 +68,16 @@ class PublicationsTab:
         parent.btnAddPub.clicked.connect(self.add_publication)
         self.parent.btnDeletePub.clicked.connect(self.delete_publication)
 
-        self.selected_publication_id = None
-
         self.table.cellClicked.connect(self.on_row_change)
 
         self.parent.btnUpdatePub.clicked.connect(self.update_publication_data)
+
+        #Работа с файлом
+        self.file_path = None
+        self.current_file_path = None
+
+        self.parent.btnFilePub.clicked.connect(self.select_file)
+        self.table.cellDoubleClicked.connect(self.open_file)
 
         # загрузка
         self.load_publications()
@@ -81,7 +92,7 @@ class PublicationsTab:
 
         completer = MultiCompleter(fio_list)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
+        completer.setCompletionMode(QCompleter.PopupCompletion)
 
         self.parent.inputAuthors.setCompleter(completer)
 
@@ -121,16 +132,28 @@ class PublicationsTab:
         self.parent.inputPubTitle.setText(self.get_item_text(row, 1))
         self.parent.inputJournal.setText(self.get_item_text(row, 2))
         self.parent.comboLevel.setCurrentText(self.get_item_text(row, 3))
-        self.parent.inputPages.setValue(int(self.get_item_text(row, 4)))
+        pages = self.get_item_text(row, 4)
+        self.parent.inputPages.setValue(int(pages) if pages.isdigit() else 1)
         self.parent.comboType.setCurrentText(self.get_item_text(row, 5))
+        self.current_file_path = get_publication_file(self.selected_publication_id)
+        self.file_path = None
 
-        from PyQt5.QtCore import QDate
         date_str = self.get_item_text(row, 6)
         if date_str:
             self.parent.inputPubDate.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
 
         self.parent.inputAuthors.setText(self.get_item_text(row, 7))
 
+    def select_file(self):
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.parent,
+            "Выберите файл",
+            "",
+            "Все файлы (*);;PDF (*.pdf);;Word (*.docx)"
+        )
+
+        if file:
+            self.file_path = file
     # ======================
     # ЗАГРУЗКА
     # ======================
@@ -185,10 +208,19 @@ class PublicationsTab:
             pub_date
         )
 
-        from database import get_all_employees, link_employee_publication
+        file_path = FileService.save_file(
+            self.file_path,
+            pub_id,
+            None
+        )
+
+        update_publication_file(pub_id, file_path)
+
+        self.file_path = None
+        self.current_file_path = None
 
         authors_text = self.parent.inputAuthors.text()
-        authors_list = [a.strip() for a in authors_text.split(";")]
+        authors_list = [a.strip() for a in authors_text.split(";") if a.strip()]
 
         employees = get_all_employees()
 
@@ -240,8 +272,6 @@ class PublicationsTab:
             "authors": self.get_item_text(row, 7),
         })
 
-        success = delete_publication_by_id(publication_id)
-
         reply = QtWidgets.QMessageBox.question(
             self.parent,
             "Подтверждение",
@@ -252,6 +282,12 @@ class PublicationsTab:
 
         if reply != QtWidgets.QMessageBox.Yes:
             return
+
+        path = get_publication_file(publication_id)
+        FileService.delete_file(path)
+
+        success = delete_publication_by_id(publication_id)
+
         if success:
             self.history.add(
                 "publication",
@@ -269,6 +305,22 @@ class PublicationsTab:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
 
     def update_publication_data(self):
+        if self.selected_publication_id is None:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
+            return
+
+        clear_publication_authors(self.selected_publication_id)
+
+        authors_text = self.parent.inputAuthors.text()
+        authors_list = [a.strip() for a in authors_text.split(";") if a.strip()]
+
+        employees = get_all_employees()
+
+        for author in authors_list:
+            for emp in employees:
+                if emp[1] == author:
+                    link_employee_publication(emp[0], self.selected_publication_id)
+                    break
         if self.selected_publication_id is None:
             QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
             return
@@ -302,6 +354,17 @@ class PublicationsTab:
             pub_date
         )
 
+        file_path = FileService.save_file(
+            self.file_path,
+            self.selected_publication_id,
+            self.current_file_path
+        )
+
+        update_publication_file(self.selected_publication_id, file_path)
+
+        self.file_path = None
+        self.current_file_path = None
+
         if success:
             self.history.add(
                 "publication",
@@ -325,6 +388,15 @@ class PublicationsTab:
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
 
+    def open_file(self, row, col):
+        pub_id = int(self.get_item_text(row, 0))
+        path = get_publication_file(pub_id)
+
+        try:
+            FileService.open_file(path)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", str(e))
+
     # ======================
     # ОЧИСТКА
     # ======================
@@ -333,3 +405,5 @@ class PublicationsTab:
         self.inputTitle.clear()
         self.inputJournal.clear()
         self.inputPages.setValue(1)
+        self.parent.inputPubDate.setDate(QDate.currentDate())
+        self.parent.inputAuthors.clear()

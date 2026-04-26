@@ -390,6 +390,7 @@ class PublicationsTab:
                     "pages": pages,
                     "type": pub_type,
                     "date": pub_date,
+                    "authors": "; ".join(authors_list)
                 })
             )
 

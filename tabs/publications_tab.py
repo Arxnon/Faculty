@@ -217,6 +217,13 @@ class PublicationsTab:
 
         update_publication_file(pub_id, file_path)
 
+        if file_path:
+            QtWidgets.QMessageBox.information(
+                self.parent,
+                "Файл",
+                "Файл успешно прикреплён"
+            )
+
         self.file_path = None
         self.current_file_path = None
 
@@ -322,9 +329,6 @@ class PublicationsTab:
                 if emp[1] == author:
                     link_employee_publication(emp[0], self.selected_publication_id)
                     break
-        if self.selected_publication_id is None:
-            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
-            return
 
         row = self.table.currentRow()
 
@@ -362,6 +366,13 @@ class PublicationsTab:
         )
 
         update_publication_file(self.selected_publication_id, file_path)
+
+        if file_path:
+            QtWidgets.QMessageBox.information(
+                self.parent,
+                "Файл",
+                "Файл успешно прикреплён"
+            )
 
         self.file_path = None
         self.current_file_path = None

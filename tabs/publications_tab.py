@@ -79,6 +79,9 @@ class PublicationsTab:
         self.parent.btnFilePub.clicked.connect(self.select_file)
         self.table.cellDoubleClicked.connect(self.open_file)
 
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.open_context_menu)
+
         # загрузка
         self.load_publications()
 
@@ -155,6 +158,26 @@ class PublicationsTab:
 
         if file:
             self.file_path = file
+
+    def open_context_menu(self, position):
+        row = self.table.currentRow()
+
+        if row == -1:
+            return
+
+        pub_id = int(self.get_item_text(row, 0))
+        file_path = get_publication_file(pub_id)
+
+        menu = QtWidgets.QMenu()
+
+        if file_path:
+            delete_action = menu.addAction("Удалить файл")
+            action = menu.exec_(self.table.viewport().mapToGlobal(position))
+
+            if action == delete_action:
+                self.delete_file(pub_id)
+
+
     # ======================
     # ЗАГРУЗКА
     # ======================
@@ -222,6 +245,15 @@ class PublicationsTab:
                 self.parent,
                 "Файл",
                 "Файл успешно прикреплён"
+            )
+
+        if file_path:
+            self.history.add(
+                "publication_file",
+                pub_id,
+                "add",
+                None,
+                file_path
             )
 
         self.file_path = None
@@ -367,6 +399,15 @@ class PublicationsTab:
 
         update_publication_file(self.selected_publication_id, file_path)
 
+        if self.file_path:
+            self.history.add(
+                "publication_file",
+                self.selected_publication_id,
+                "update",
+                self.current_file_path,
+                file_path
+            )
+
         if file_path:
             QtWidgets.QMessageBox.information(
                 self.parent,
@@ -409,6 +450,37 @@ class PublicationsTab:
             FileService.open_file(path)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self.parent, "Ошибка", str(e))
+
+    def delete_file(self, pub_id):
+        reply = QtWidgets.QMessageBox.question(
+            self.parent,
+            "Удаление файла",
+            "Удалить прикреплённый файл?",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
+
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        old_path = get_publication_file(pub_id)
+
+        FileService.delete_file(old_path)
+        update_publication_file(pub_id, None)
+
+        QtWidgets.QMessageBox.information(self.parent, "Файл", "Файл удалён")
+
+        # история
+        self.history.add(
+            "publication_file",
+            pub_id,
+            "delete",
+            old_path,
+            None
+        )
+
+        self.parent.history_tab.refresh()
+        self.load_publications()
 
     # ======================
     # ОЧИСТКА

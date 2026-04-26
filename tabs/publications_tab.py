@@ -102,7 +102,7 @@ class PublicationsTab:
 
     def fill_table(self, data):
         self.table.setRowCount(len(data))
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(9)
 
         self.table.setHorizontalHeaderLabels([
             "ID",
@@ -112,7 +112,8 @@ class PublicationsTab:
             "Страницы",
             "Тип",
             "Дата",
-            "Авторы"
+            "Авторы",
+            "Файл"
         ])
 
         for row_idx, row_data in enumerate(data):

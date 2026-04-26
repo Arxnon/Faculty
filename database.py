@@ -139,33 +139,37 @@ def link_employee_publication(employee_id, publication_id):
     conn.close()
 
 def get_all_publications():
-    conn = connect_db()
-    cursor = conn.cursor()
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT 
-            p.id,
-            p.title,
-            p.journal,
-            p.level,
-            p.pages,
-            p.publication_type,
-            p.publication_date,
-            GROUP_CONCAT(e.fio, '; ') as authors,
-            CASE 
-                WHEN p.file_path IS NOT NULL AND p.file_path != '' THEN 'True'
-                ELSE 'False'
-            END as has_file
-        FROM publications p
-        LEFT JOIN employee_publication ep ON p.id = ep.publication_id
-        LEFT JOIN employees e ON ep.employee_id = e.id
-        GROUP BY p.id
-        ORDER BY p.id DESC
-    """)
+            cursor.execute("""
+                SELECT 
+                    p.id,
+                    p.title,
+                    p.journal,
+                    p.level,
+                    p.pages,
+                    p.publication_type,
+                    p.pub_date,
+                    GROUP_CONCAT(e.fio, '; ') as authors,
+                    CASE 
+                        WHEN p.file_path IS NOT NULL AND p.file_path != '' THEN 'True'
+                        ELSE 'False'
+                    END as has_file
+                FROM publications p
+                LEFT JOIN employee_publications ep 
+                    ON p.id = ep.publication_id
+                LEFT JOIN employees e 
+                    ON ep.employee_id = e.id
+                GROUP BY p.id
+            """)
 
-    data = cursor.fetchall()
-    conn.close()
-    return data
+            return cursor.fetchall()
+
+    except Exception as e:
+        print(f"Ошибка получения публикаций: {e}")
+        return []
 
 def get_all_employees() -> List[Tuple]:
 

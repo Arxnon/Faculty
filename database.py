@@ -474,3 +474,42 @@ def search_achievements(text: str):
     except Exception as e:
         print(f"Ошибка поиска достижений: {e}")
         return []
+
+def link_employee_achievement(employee_id, achievement_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO employee_achievements (employee_id, achievement_id)
+        VALUES (?, ?)
+    """, (employee_id, achievement_id))
+
+    conn.commit()
+    conn.close()
+
+def clear_achievement_employees(achievement_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM employee_achievements
+        WHERE achievement_id = ?
+    """, (achievement_id,))
+
+    conn.commit()
+    conn.close()
+
+def ensure_employee_achievements():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS employee_achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        employee_id INTEGER,
+        achievement_id INTEGER
+    )
+    """)
+
+    conn.commit()
+    conn.close()

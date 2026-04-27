@@ -1,4 +1,7 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtCore import QDate, Qt
+from PyQt5.QtWidgets import QCompleter
+
 from services.file_service import FileService
 from database import (
     get_all_achievements,
@@ -7,8 +10,33 @@ from database import (
     update_achievement,
     get_achievement_file,
     update_achievement_file,
-    get_all_employees
+    clear_achievement_employees,
+    get_all_employees,
+    link_employee_achievement
 )
+
+
+class MultiCompleter(QCompleter):
+    def splitPath(self, path):
+        return [(path or "").split(";")[-1].strip()]
+
+    def pathFromIndex(self, index):
+        widget = self.widget()
+        if widget is None:
+            return ""
+
+        text = widget.text() or ""
+        parts = text.split(";")
+
+        value = index.data()
+        if value is None:
+            return text
+
+        if len(parts) > 1:
+            return "; ".join([p.strip() for p in parts[:-1]]) + "; " + value
+        else:
+            return value
+
 
 class AchievementsTab:
     def __init__(self, parent, history_service):
@@ -26,12 +54,13 @@ class AchievementsTab:
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
 
         # FIELDS
-        self.inputEmployeeName = parent.inputEmployeeName
-        self.inputEvent = parent.inputEvent
         self.inputAchievement = parent.inputAchievement
+        self.inputEvent = parent.inputEvent
         self.inputCity = parent.inputCity
         self.inputOrganization = parent.inputOrganization
-        self.inputWorkName = parent.inputWorkName
+        self.inputWork = parent.inputWork
+        self.inputAchDate = parent.inputAchDate
+        self.inputEmployees = parent.inputEmployeeName # <- аналог authors
 
         # SEARCH
         self.search = parent.searchAchievements
@@ -39,8 +68,8 @@ class AchievementsTab:
 
         # BUTTONS
         parent.btnAddAch.clicked.connect(self.add_achievement)
-        parent.btnDeleteAch.clicked.connect(self.delete_achievement)
         parent.btnUpdateAch.clicked.connect(self.update_achievement_data)
+        parent.btnDeleteAch.clicked.connect(self.delete_achievement)
         parent.btnFileAch.clicked.connect(self.select_file)
 
         # EVENTS
@@ -50,15 +79,22 @@ class AchievementsTab:
         self.refresh_employees()
         self.load_achievements()
 
+        self.employee_map = {}
+
     # ======================
-    # EMPLOYEES
+    # EMPLOYEES (как authors)
     # ======================
     def refresh_employees(self):
         employees = get_all_employees()
+        fio_list = [emp[1] for emp in employees]
+
         self.employee_map = {emp[1]: emp[0] for emp in employees}
 
-        self.comboEmployee.clear()
-        self.comboEmployee.addItems(self.employee_map.keys())
+        completer = MultiCompleter(fio_list)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setCompletionMode(QCompleter.PopupCompletion)
+
+        self.inputEmployees.setCompleter(completer)
 
     # ======================
     # TABLE
@@ -69,7 +105,7 @@ class AchievementsTab:
 
         self.table.setHorizontalHeaderLabels([
             "ID",
-            "Сотрудник",
+            "Сотрудники",
             "Мероприятие",
             "Достижение",
             "Город",
@@ -112,12 +148,16 @@ class AchievementsTab:
     def on_row_change(self, row):
         self.selected_id = int(self.table.item(row, 0).text())
 
-        self.comboEmployee.setCurrentText(self.table.item(row, 1).text())
+        self.inputEmployees.setText(self.table.item(row, 1).text())
         self.inputEvent.setText(self.table.item(row, 2).text())
         self.inputAchievement.setText(self.table.item(row, 3).text())
         self.inputCity.setText(self.table.item(row, 4).text())
         self.inputOrganization.setText(self.table.item(row, 5).text())
-        self.inputWorkName.setText(self.table.item(row, 6).text())
+        self.inputWork.setText(self.table.item(row, 6).text())
+
+        date_str = self.table.item(row, 7).text() if self.table.item(row, 7) else ""
+        if date_str:
+            self.inputAchDate.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
 
         self.current_file_path = get_achievement_file(self.selected_id)
         self.file_path = None
@@ -126,24 +166,26 @@ class AchievementsTab:
     # ADD
     # ======================
     def add_achievement(self):
-        emp_id = self.employee_map.get(self.comboEmployee.currentText())
-
-        if not emp_id:
-            return
-
         ach_id = add_achievement(
-            emp_id,
             self.inputEvent.text(),
             self.inputAchievement.text(),
             self.inputCity.text(),
             self.inputOrganization.text(),
-            self.inputWorkName.text()
+            self.inputWork.text(),
+            self.inputAchDate.date().toString("yyyy-MM-dd")
         )
+
+        # employees
+        employees_text = self.inputEmployees.text()
+        employees_list = [e.strip() for e in employees_text.split(";") if e.strip()]
+
+        for emp in employees_list:
+            if emp in self.employee_map:
+                link_employee_achievement(self.employee_map[emp], ach_id)
 
         file_path = FileService.save_file(self.file_path, ach_id, None)
         update_achievement_file(ach_id, file_path)
 
-        # HISTORY
         self.history.add(
             "achievement",
             ach_id,
@@ -153,16 +195,14 @@ class AchievementsTab:
                 "event": self.inputEvent.text(),
                 "achievement": self.inputAchievement.text(),
                 "city": self.inputCity.text(),
-                "organization": self.inputOrganization.text(),
-                "work": self.inputWorkName.text()
+                "org": self.inputOrganization.text(),
+                "work": self.inputWork.text()
             })
         )
 
         self.file_path = None
         self.clear_fields()
         self.load_achievements()
-
-        QtWidgets.QMessageBox.information(self.parent, "OK", "Достижение добавлено")
 
     # ======================
     # UPDATE
@@ -171,26 +211,24 @@ class AchievementsTab:
         if not self.selected_id:
             return
 
-        emp_id = self.employee_map.get(self.comboEmployee.currentText())
+        clear_achievement_employees(self.selected_id)
 
-        old_row = self.table.currentRow()
+        employees_list = [
+            e.strip() for e in self.inputEmployees.text().split(";") if e.strip()
+        ]
 
-        old_data = str({
-            "event": self.table.item(old_row, 2).text(),
-            "achievement": self.table.item(old_row, 3).text(),
-            "city": self.table.item(old_row, 4).text(),
-            "organization": self.table.item(old_row, 5).text(),
-            "work": self.table.item(old_row, 6).text()
-        })
+        for emp in employees_list:
+            if emp in self.employee_map:
+                link_employee_achievement(self.employee_map[emp], self.selected_id)
 
         update_achievement(
             self.selected_id,
-            emp_id,
             self.inputEvent.text(),
             self.inputAchievement.text(),
             self.inputCity.text(),
             self.inputOrganization.text(),
-            self.inputWorkName.text()
+            self.inputWork.text(),
+            self.inputAchDate.date().toString("yyyy-MM-dd")
         )
 
         file_path = FileService.save_file(
@@ -205,14 +243,8 @@ class AchievementsTab:
             "achievement",
             self.selected_id,
             "update",
-            old_data,
-            str({
-                "event": self.inputEvent.text(),
-                "achievement": self.inputAchievement.text(),
-                "city": self.inputCity.text(),
-                "organization": self.inputOrganization.text(),
-                "work": self.inputWorkName.text()
-            })
+            None,
+            "updated"
         )
 
         self.file_path = None
@@ -228,21 +260,13 @@ class AchievementsTab:
 
         ach_id = int(self.table.item(row, 0).text())
 
-        old_data = str({
-            "event": self.table.item(row, 2).text(),
-            "achievement": self.table.item(row, 3).text(),
-            "city": self.table.item(row, 4).text(),
-            "organization": self.table.item(row, 5).text(),
-            "work": self.table.item(row, 6).text()
-        })
-
         delete_achievement_by_id(ach_id)
 
         self.history.add(
             "achievement",
             ach_id,
             "delete",
-            old_data,
+            None,
             None
         )
 
@@ -271,4 +295,6 @@ class AchievementsTab:
         self.inputAchievement.clear()
         self.inputCity.clear()
         self.inputOrganization.clear()
-        self.inputWorkName.clear()
+        self.inputWork.clear()
+        self.inputEmployees.clear()
+        self.inputAchDate.setDate(QDate.currentDate())

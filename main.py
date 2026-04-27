@@ -3,6 +3,7 @@ from tabs.employees_tab import EmployeesTab
 from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
 from tabs.publications_tab import PublicationsTab
+from tabs.achievements_tab import AchievementsTab
 from database import ensure_publications_schema, ensure_employee_publications
 
 ensure_publications_schema()
@@ -26,6 +27,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Подключение публикаций
         self.publications_tab = PublicationsTab(self, self.history_service)
+
+        self.achievements_tab = AchievementsTab(self, self.history_service)
 
         #Подключение истории
         self.history_tab = HistoryTab(self.history_service)

@@ -53,7 +53,7 @@ def ensure_publications_schema():
     conn.commit()
     conn.close()
 
-def create_achievements_schema():
+def ensure_achievements_schema():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
@@ -66,10 +66,13 @@ def create_achievements_schema():
         city TEXT,
         organization TEXT,
         work_name TEXT,
-        ach_date, TEXT,
+        ach_date TEXT,
         file_path TEXT
     )
     """)
+
+    conn.commit()
+    conn.close()
 
 def ensure_employee_publications():
     conn = sqlite3.connect(DB_FILE)

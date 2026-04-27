@@ -337,3 +337,79 @@ def clear_publication_authors(publication_id):
             conn.commit()
     except Exception as e:
         print(f"Ошибка очистки авторов: {e}")
+
+def add_achievement(employee_id, event, achievement, city, organization, work_name):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO achievements 
+        (employee_id, event, achievement, city, organization, work_name)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (employee_id, event, achievement, city, organization, work_name))
+
+    ach_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+    return ach_id
+
+def get_all_achievements():
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    a.id,
+                    e.fio,
+                    a.event,
+                    a.achievement,
+                    a.city,
+                    a.organization,
+                    a.work_name,
+                    a.file_path
+                FROM achievements a
+                LEFT JOIN employees e ON a.employee_id = e.id
+            """)
+
+            return cursor.fetchall()
+
+    except Exception as e:
+        print(f"Ошибка получения достижений: {e}")
+        return []
+
+def update_achievement(ach_id, employee_id, event, achievement, city, organization, work_name):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE achievements
+                SET employee_id=?, event=?, achievement=?, city=?, organization=?, work_name=?
+                WHERE id=?
+            """, (employee_id, event, achievement, city, organization, work_name, ach_id))
+
+            conn.commit()
+            return True
+
+    except Exception as e:
+        print(f"Ошибка обновления достижения: {e}")
+        return False
+
+def delete_achievement_by_id(ach_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                DELETE FROM achievements
+                WHERE id = ?
+            """, (ach_id,))
+
+            conn.commit()
+            return True
+
+    except Exception as e:
+        print(f"Ошибка удаления достижения: {e}")
+        return False

@@ -4,10 +4,11 @@ from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
 from tabs.publications_tab import PublicationsTab
 from tabs.achievements_tab import AchievementsTab
-from database import ensure_publications_schema, ensure_employee_publications
+from database import ensure_publications_schema, ensure_employee_publications, ensure_achievements_schema
 
 ensure_publications_schema()
 ensure_employee_publications()
+ensure_achievements_schema() 
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):

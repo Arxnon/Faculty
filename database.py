@@ -413,3 +413,64 @@ def delete_achievement_by_id(ach_id):
     except Exception as e:
         print(f"Ошибка удаления достижения: {e}")
         return False
+
+def update_achievement_file(ach_id, file_path):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE achievements
+                SET file_path = ?
+                WHERE id = ?
+            """, (file_path, ach_id))
+            conn.commit()
+    except Exception as e:
+        print(f"Ошибка сохранения файла достижения: {e}")
+
+def get_achievement_file(ach_id):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT file_path FROM achievements WHERE id = ?
+            """, (ach_id,))
+
+            result = cursor.fetchone()
+            return result[0] if result else None
+
+    except Exception as e:
+        print(f"Ошибка получения файла: {e}")
+        return None
+
+def search_achievements(text: str):
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT 
+                    a.id,
+                    e.fio,
+                    a.event,
+                    a.achievement,
+                    a.city,
+                    a.organization,
+                    a.work_name,
+                    a.file_path
+                FROM achievements a
+                LEFT JOIN employees e ON a.employee_id = e.id
+                WHERE 
+                    e.fio LIKE ? OR
+                    a.event LIKE ? OR
+                    a.achievement LIKE ? OR
+                    a.city LIKE ? OR
+                    a.organization LIKE ? OR
+                    a.work_name LIKE ?
+            """, tuple([f"%{text}%"] * 6))
+
+            return cursor.fetchall()
+
+    except Exception as e:
+        print(f"Ошибка поиска достижений: {e}")
+        return []

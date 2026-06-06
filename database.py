@@ -41,7 +41,8 @@ def ensure_publications_schema():
     # добавляем недостающие колонки
     columns = [
         ("publication_type", "TEXT"),
-        ("pub_date", "TEXT")
+        ("pub_date", "TEXT"),
+        ("file_path", "TEXT")
     ]
 
     for col, col_type in columns:
@@ -60,16 +61,28 @@ def ensure_achievements_schema():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS achievements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER,
-        event TEXT,
-        achievement TEXT,
-        city TEXT,
-        organization TEXT,
-        work_name TEXT,
-        ach_date TEXT,
-        file_path TEXT
+        employee_id INTEGER
     )
     """)
+
+    columns = [
+        ("employee_id", "INTEGER"),
+        ("event", "TEXT"),
+        ("achievement", "TEXT"),
+        ("city", "TEXT"),
+        ("organization", "TEXT"),
+        ("work_name", "TEXT"),
+        ("ach_date", "TEXT"),
+        ("file_path", "TEXT")
+    ]
+
+    for col, col_type in columns:
+        try:
+            cursor.execute(
+                f"ALTER TABLE achievements ADD COLUMN {col} {col_type}"
+            )
+        except:
+            pass
 
     conn.commit()
     conn.close()
@@ -341,20 +354,42 @@ def clear_publication_authors(publication_id):
     except Exception as e:
         print(f"Ошибка очистки авторов: {e}")
 
-def add_achievement(employee_id, event, achievement, city, organization, work_name):
+def add_achievement(
+        event,
+        achievement,
+        city,
+        organization,
+        work_name,
+        ach_date
+):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO achievements 
-        (employee_id, event, achievement, city, organization, work_name)
+        INSERT INTO achievements
+        (
+            event,
+            achievement,
+            city,
+            organization,
+            work_name,
+            ach_date
+        )
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (employee_id, event, achievement, city, organization, work_name))
+    """, (
+        event,
+        achievement,
+        city,
+        organization,
+        work_name,
+        ach_date
+    ))
 
     ach_id = cursor.lastrowid
 
     conn.commit()
     conn.close()
+
     return ach_id
 
 def get_all_achievements():
@@ -363,17 +398,28 @@ def get_all_achievements():
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT 
+                SELECT
                     a.id,
-                    e.fio,
+                    GROUP_CONCAT(e.fio, '; ') as employees,
                     a.event,
                     a.achievement,
                     a.city,
                     a.organization,
                     a.work_name,
-                    a.file_path
+                    a.ach_date,
+                    CASE
+                        WHEN a.file_path IS NOT NULL
+                             AND a.file_path != ''
+                        THEN 'True'
+                        ELSE 'False'
+                    END as has_file
                 FROM achievements a
-                LEFT JOIN employees e ON a.employee_id = e.id
+                LEFT JOIN employee_achievements ea
+                    ON a.id = ea.achievement_id
+                LEFT JOIN employees e
+                    ON ea.employee_id = e.id
+                GROUP BY a.id
+                ORDER BY a.id DESC
             """)
 
             return cursor.fetchall()
@@ -382,16 +428,38 @@ def get_all_achievements():
         print(f"Ошибка получения достижений: {e}")
         return []
 
-def update_achievement(ach_id, employee_id, event, achievement, city, organization, work_name):
+def update_achievement(
+        ach_id,
+        event,
+        achievement,
+        city,
+        organization,
+        work_name,
+        ach_date
+):
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
                 UPDATE achievements
-                SET employee_id=?, event=?, achievement=?, city=?, organization=?, work_name=?
+                SET
+                    event=?,
+                    achievement=?,
+                    city=?,
+                    organization=?,
+                    work_name=?,
+                    ach_date=?
                 WHERE id=?
-            """, (employee_id, event, achievement, city, organization, work_name, ach_id))
+            """, (
+                event,
+                achievement,
+                city,
+                organization,
+                work_name,
+                ach_date,
+                ach_id
+            ))
 
             conn.commit()
             return True

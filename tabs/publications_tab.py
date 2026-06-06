@@ -221,6 +221,33 @@ class PublicationsTab:
                 "Введите название публикации"
             )
             return
+        authors_text = self.parent.inputAuthors.text().strip()
+
+        if not authors_text:
+            QtWidgets.QMessageBox.warning(
+                self.parent,
+                "Ошибка",
+                "Поле 'Авторы' не может быть пустым"
+            )
+            return
+
+        authors_list = [
+            a.strip()
+            for a in authors_text.split(";")
+            if a.strip()
+        ]
+
+        employees = get_all_employees()
+        employee_names = {emp[1] for emp in employees}
+
+        for author in authors_list:
+            if author not in employee_names:
+                QtWidgets.QMessageBox.warning(
+                    self.parent,
+                    "Ошибка",
+                    f"Сотрудник '{author}' отсутствует в базе данных"
+                )
+                return
 
         # добавляем в БД
         pub_id = add_publication(
@@ -361,6 +388,33 @@ class PublicationsTab:
                 if emp[1] == author:
                     link_employee_publication(emp[0], self.selected_publication_id)
                     break
+        authors_text = self.parent.inputAuthors.text().strip()
+
+        if not authors_text:
+            QtWidgets.QMessageBox.warning(
+                self.parent,
+                "Ошибка",
+                "Поле 'Авторы' не может быть пустым"
+            )
+            return
+
+        authors_list = [
+            a.strip()
+            for a in authors_text.split(";")
+            if a.strip()
+        ]
+
+        employees = get_all_employees()
+        employee_names = {emp[1] for emp in employees}
+
+        for author in authors_list:
+            if author not in employee_names:
+                QtWidgets.QMessageBox.warning(
+                    self.parent,
+                    "Ошибка",
+                    f"Сотрудник '{author}' отсутствует в базе данных"
+                )
+                return
 
         row = self.table.currentRow()
 

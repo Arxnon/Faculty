@@ -4,11 +4,13 @@ from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
 from tabs.publications_tab import PublicationsTab
 from tabs.achievements_tab import AchievementsTab
-from database import ensure_publications_schema, ensure_employee_publications, ensure_achievements_schema
+from database import ensure_publications_schema, ensure_employee_publications, ensure_achievements_schema, ensure_employee_achievements
+from tabs.reports_tab import ReportsTab
 
 ensure_publications_schema()
 ensure_employee_publications()
-ensure_achievements_schema() 
+ensure_achievements_schema()
+ensure_employee_achievements()
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -29,11 +31,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # Подключение публикаций
         self.publications_tab = PublicationsTab(self, self.history_service)
 
+        # Подключение достижений
         self.achievements_tab = AchievementsTab(self, self.history_service)
 
         #Подключение истории
         self.history_tab = HistoryTab(self.history_service)
         self.tabWidget.addTab(self.history_tab, "История изменений")
+
+        # Подключение отчетов
+        self.reports_tab = ReportsTab(self)
+
 
     def closeEvent(self, event):
         print("closeEvent called")

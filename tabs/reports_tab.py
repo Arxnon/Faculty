@@ -1,4 +1,6 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from openpyxl import Workbook
 from database import (
     get_all_employees,
     get_all_publications,
@@ -20,6 +22,8 @@ class ReportsTab:
         self.btnYear.clicked.connect(self.report_by_year)
         self.btnLevel.clicked.connect(self.report_by_level)
 
+        self.filter_active = False
+
         self.selected_employees = []
 
         parent.btnSelectEmployees.clicked.connect(
@@ -30,6 +34,10 @@ class ReportsTab:
             self.toggle_interval
         )
 
+        self.parent.btnExportExcel.clicked.connect(
+            self.export_excel
+        )
+
     # ======================
     # ПО СОТРУДНИКАМ
     # ======================
@@ -38,7 +46,7 @@ class ReportsTab:
 
         employees = get_all_employees()
 
-        if self.selected_employees:
+        if self.filter_active:
             employees = [
                 e for e in employees
                 if e[1] in self.selected_employees
@@ -93,6 +101,14 @@ class ReportsTab:
             )
 
         self.table.resizeColumnsToContents()
+        self.parent.lblReportInfo.setText(
+            f"Сотрудников: {len(employees)}"
+        )
+
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+
+        self.table.resizeColumnsToContents()
 
     def select_employees(self):
 
@@ -109,7 +125,7 @@ class ReportsTab:
         if dlg.exec_():
 
             self.selected_employees = dlg.get_selected()
-
+            self.filter_active = True
             if self.selected_employees:
 
                 self.parent.lblSelectedEmployees.setText(
@@ -122,11 +138,14 @@ class ReportsTab:
                     "Все сотрудники"
                 )
 
+
     # ======================
     # ПО ГОДУ
     # ======================
 
     def report_by_year(self):
+
+        from datetime import datetime
 
         year = str(self.parent.spinReportYear.value())
 
@@ -142,39 +161,96 @@ class ReportsTab:
 
         rows = []
 
+        use_interval = self.parent.chkUseInterval.isChecked()
+
+        start_date = self.parent.dateStart.date().toPyDate()
+        end_date = self.parent.dateEnd.date().toPyDate()
+
+        # Публикации
         for pub in get_all_publications():
 
-            date = str(pub[6])
+            date_str = str(pub[6]) if pub[6] else ""
 
-            if year in date:
-                rows.append([
-                    "Публикация",
-                    pub[1],
-                    date,
-                    pub[7]
-                ])
+            try:
+                pub_date = datetime.strptime(
+                    date_str,
+                    "%Y-%m-%d"
+                ).date()
 
+            except:
+                continue
+
+            if use_interval:
+
+                if start_date <= pub_date <= end_date:
+                    rows.append([
+                        "Публикация",
+                        pub[1],
+                        date_str,
+                        pub[7] or ""
+                    ])
+
+            else:
+
+                if pub_date.year == int(year):
+                    rows.append([
+                        "Публикация",
+                        pub[1],
+                        date_str,
+                        pub[7] or ""
+                    ])
+
+        # Достижения
         for ach in get_all_achievements():
 
-            # когда появится дата достижения
-            # можно заменить индекс
+            date_str = str(ach[7]) if ach[7] else ""
 
-            rows.append([
-                "Достижение",
-                ach[3],
-                "",
-                ach[1]
-            ])
+            try:
+                ach_date = datetime.strptime(
+                    date_str,
+                    "%Y-%m-%d"
+                ).date()
+
+            except:
+                continue
+
+            if use_interval:
+
+                if start_date <= ach_date <= end_date:
+                    rows.append([
+                        "Достижение",
+                        ach[3],
+                        date_str,
+                        ach[1] or ""
+                    ])
+
+            else:
+
+                if ach_date.year == int(year):
+                    rows.append([
+                        "Достижение",
+                        ach[3],
+                        date_str,
+                        ach[1] or ""
+                    ])
 
         self.table.setRowCount(len(rows))
 
         for r, row_data in enumerate(rows):
+
             for c, value in enumerate(row_data):
                 self.table.setItem(
                     r,
                     c,
                     QtWidgets.QTableWidgetItem(str(value))
                 )
+
+        self.parent.lblReportInfo.setText(
+            f"Найдено записей: {len(rows)}"
+        )
+
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
 
         self.table.resizeColumnsToContents()
 
@@ -191,10 +267,13 @@ class ReportsTab:
 
         level = self.parent.comboReportLevel.currentText()
 
-        publications = [
-            p for p in get_all_publications()
-            if p[3] == level
-        ]
+        if level == "Все уровни":
+            publications = get_all_publications()
+        else:
+            publications = [
+                p for p in get_all_publications()
+                if p[3] == level
+            ]
 
         self.table.clear()
         self.table.setColumnCount(4)
@@ -232,3 +311,80 @@ class ReportsTab:
             )
 
         self.table.resizeColumnsToContents()
+
+        self.parent.lblReportInfo.setText(
+            f"Публикаций уровня '{level}': {len(publications)}"
+        )
+
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+
+        self.table.resizeColumnsToContents()
+
+    def export_excel(self):
+
+        if self.table.rowCount() == 0:
+            QMessageBox.warning(
+                self.parent,
+                "Экспорт",
+                "Сначала сформируйте отчет."
+            )
+
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self.parent,
+            "Сохранить отчет",
+            "report.xlsx",
+            "Excel (*.xlsx)"
+        )
+
+        if not filename:
+            return
+
+        try:
+
+            wb = Workbook()
+            ws = wb.active
+
+            ws.title = "Отчет"
+
+            headers = []
+
+            for col in range(self.table.columnCount()):
+                item = self.table.horizontalHeaderItem(col)
+
+                headers.append(
+                    item.text() if item else ""
+                )
+
+            ws.append(headers)
+
+            for row in range(self.table.rowCount()):
+
+                values = []
+
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+
+                    values.append(
+                        item.text() if item else ""
+                    )
+
+                ws.append(values)
+
+            wb.save(filename)
+
+            QMessageBox.information(
+                self.parent,
+                "Экспорт",
+                "Отчет успешно сохранен."
+            )
+
+        except Exception as e:
+
+            QMessageBox.critical(
+                self.parent,
+                "Ошибка",
+                str(e)
+            )

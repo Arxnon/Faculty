@@ -248,17 +248,21 @@
       </widget>
      </item>
 
-     <QPushButton name="btnSelectEmployees">
-    <property name="text">
-        <string>Выбрать сотрудников</string>
-    </property>
-    </QPushButton>
+     <item row="0" column="1">
+ <widget class="QPushButton" name="btnSelectEmployees">
+  <property name="text">
+   <string>Выбрать сотрудников</string>
+  </property>
+ </widget>
+</item>
 
-    <QLabel name="lblSelectedEmployees">
-    <property name="text">
-        <string>Все сотрудники</string>
-    </property>
-        </QLabel>
+    <item row="0" column="2">
+ <widget class="QLabel" name="lblSelectedEmployees">
+  <property name="text">
+   <string>Все сотрудники</string>
+  </property>
+ </widget>
+</item>
         
      <!-- Год -->
      <item row="1" column="0">
@@ -272,10 +276,10 @@
      <item row="1" column="1">
       <widget class="QSpinBox" name="spinReportYear">
        <property name="minimum">
-        <number>2000</number>
+        <number>0</number>
        </property>
        <property name="maximum">
-        <number>2100</number>
+        <number>10000</number>
        </property>
        <property name="value">
         <number>2026</number>

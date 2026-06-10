@@ -1,7 +1,17 @@
 import sqlite3
 from typing import List, Tuple
+import os
+import sys
 
-DB_FILE = "employee_system.db"
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+DB_FILE = resource_path("employee_system.db")
 
 
 def create_database(db_file):

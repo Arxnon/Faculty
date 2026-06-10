@@ -1,4 +1,5 @@
 from PyQt5 import QtWidgets, uic
+import os, sys
 from tabs.employees_tab import EmployeesTab
 from services.history_service import HistoryService
 from tabs.history_tab import HistoryTab
@@ -12,15 +13,30 @@ ensure_employee_publications()
 ensure_achievements_schema()
 ensure_employee_achievements()
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("main.ui", self)
+        uic.loadUi(
+            resource_path("main.ui"),
+            self
+        )
         self.history_service = HistoryService()
 
         # Стили
         try:
-            with open("style.qss", "r", encoding="utf-8") as f:
+            with open(
+                    resource_path("style.qss"),
+                    "r",
+                    encoding="utf-8"
+            ) as f:
                 self.setStyleSheet(f.read())
         except Exception as e:
             print(f"Не удалось загрузить стиль: {e}")

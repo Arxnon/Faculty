@@ -262,6 +262,7 @@ class PublicationsTab:
         file_path = FileService.save_file(
             self.file_path,
             pub_id,
+            "files/publications",
             None
         )
 
@@ -448,6 +449,7 @@ class PublicationsTab:
         file_path = FileService.save_file(
             self.file_path,
             self.selected_publication_id,
+            "files/publications",
             self.current_file_path
         )
 

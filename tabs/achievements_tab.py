@@ -211,7 +211,7 @@ class AchievementsTab:
             if emp in self.employee_map:
                 link_employee_achievement(self.employee_map[emp], ach_id)
 
-        file_path = FileService.save_file(self.file_path, ach_id, None)
+        file_path = FileService.save_file(self.file_path, ach_id, "files/achievements", None)
         update_achievement_file(ach_id, file_path)
 
         if file_path:
@@ -315,6 +315,7 @@ class AchievementsTab:
         file_path = FileService.save_file(
             self.file_path,
             self.selected_id,
+            "files/achievements",
             self.current_file_path
         )
         self.history.add(

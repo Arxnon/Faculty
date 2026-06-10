@@ -66,6 +66,8 @@ class AchievementsTab:
         self.search = parent.searchAchievements
         self.search.textChanged.connect(self.search_achievements)
 
+        self.refresh_employees()
+
         # BUTTONS
         parent.btnAddAch.clicked.connect(self.add_achievement)
         parent.btnUpdateAch.clicked.connect(self.update_achievement_data)
@@ -79,9 +81,6 @@ class AchievementsTab:
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.open_context_menu)
 
-        self.employee_map = {}
-
-        self.refresh_employees()
         self.load_achievements()
     # ======================
     # EMPLOYEES (как authors)

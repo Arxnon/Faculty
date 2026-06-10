@@ -1,0 +1,1 @@
+pyinstaller --onefile --windowed --collect-all openpyxl --hidden-import=openpyxl --add-data "main.ui;." --add-data "style.qss;." --add-data "employee_system.db;." --add-data "files;files" main.py

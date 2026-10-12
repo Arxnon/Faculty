@@ -70,3 +70,11 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+.idea/
+__pycache__/
+*.pyc
+*.exe
+dist/
+build/
+*.db

@@ -1,9 +1,10 @@
 from PyQt5 import QtWidgets
 
+
 class EmployeeSelectorDialog(QtWidgets.QDialog):
 
-    def __init__(self, employees, selected=None):
-        super().__init__()
+    def __init__(self, employees, selected=None, parent=None):
+        super().__init__(parent)
 
         self.setWindowTitle("Выбор сотрудников")
         self.resize(400, 500)

@@ -1,596 +1,415 @@
-import sqlite3
-from typing import List, Tuple
-import os
-import sys
+"""Операции с данными: сотрудники, публикации, достижения.
 
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-
-DB_FILE = resource_path("employee_system.db")
+Все функции открывают своё соединение через модуль db. Операции, которые меняют
+несколько таблиц сразу (публикация вместе с авторами и т. п.), выполняются
+в одной транзакции. Ошибки SQLite не скрываются: исключение дойдёт до обработчика
+в main.py, который запишет его в журнал и покажет окно с ошибкой.
+"""
+from db import connection, transaction
 
 
-def create_database(db_file):
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
+class DuplicateEmployeeError(ValueError):
+    """Сотрудник с таким ФИО уже есть."""
 
-    #Сотрудники
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS employees (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fio TEXT NOT NULL,
-        birth_date DATE,
-        position TEXT,
-        degree TEXT,
-        rank TEXT
-    )
-    """)
 
-    conn.commit()
-    conn.close()
+def _norm(text):
+    """Ключ для сравнения имён: без лишних пробелов и без учёта регистра (в том числе кириллицы)."""
+    return " ".join((text or "").split()).casefold()
 
-def ensure_publications_schema():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
 
-    # таблица публикаций
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS publications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        journal TEXT,
-        level TEXT,
-        pages INTEGER
-    )
-    """)
+def _clean(text):
+    return " ".join((text or "").split())
 
-    # добавляем недостающие колонки
-    columns = [
-        ("publication_type", "TEXT"),
-        ("pub_date", "TEXT"),
-        ("file_path", "TEXT")
-    ]
 
-    for col, col_type in columns:
-        try:
-            cursor.execute(f"ALTER TABLE publications ADD COLUMN {col} {col_type}")
-        except:
-            pass
+# ======================
+# СОТРУДНИКИ
+# ======================
 
-    conn.commit()
-    conn.close()
+def get_all_employees():
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, fio, birth_date, position, degree, rank FROM employees"
+        ).fetchall()
+    return sorted(rows, key=lambda row: _norm(row["fio"]))
 
-def ensure_achievements_schema():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS achievements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER
-    )
-    """)
+def get_employee(employee_id):
+    with connection() as conn:
+        return conn.execute(
+            "SELECT id, fio, birth_date, position, degree, rank FROM employees WHERE id = ?",
+            (employee_id,),
+        ).fetchone()
 
-    columns = [
-        ("employee_id", "INTEGER"),
-        ("event", "TEXT"),
-        ("achievement", "TEXT"),
-        ("city", "TEXT"),
-        ("organization", "TEXT"),
-        ("work_name", "TEXT"),
-        ("ach_date", "TEXT"),
-        ("file_path", "TEXT")
-    ]
 
-    for col, col_type in columns:
-        try:
-            cursor.execute(
-                f"ALTER TABLE achievements ADD COLUMN {col} {col_type}"
+def _assert_unique_fio(conn, fio, exclude_id=None):
+    target = _norm(fio)
+    for row in conn.execute("SELECT id, fio FROM employees"):
+        if row["id"] != exclude_id and _norm(row["fio"]) == target:
+            raise DuplicateEmployeeError(
+                f"Сотрудник «{row['fio']}» уже есть в базе. "
+                "Если это тёзка, добавьте к ФИО отличие (например, год рождения)."
             )
-        except:
-            pass
 
-    conn.commit()
-    conn.close()
-
-def ensure_employee_publications():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS employee_publications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER,
-        publication_id INTEGER
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-def add_publication(title, journal, level, pages, pub_type, pub_date):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO publications (title, journal, level, pages, publication_type, pub_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (title, journal, level, pages, pub_type, pub_date))
-
-    pub_id = cursor.lastrowid
-
-    conn.commit()
-    conn.close()
-
-    return pub_id
-
-def delete_publication_by_id(publication_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            # удаляем связи
-            cursor.execute("""
-                DELETE FROM employee_publications
-                WHERE publication_id = ?
-            """, (publication_id,))
-
-            # удаляем саму публикацию
-            cursor.execute("""
-                DELETE FROM publications
-                WHERE id = ?
-            """, (publication_id,))
-
-            conn.commit()
-            return True
-
-    except Exception as e:
-        print(f"Ошибка удаления публикации: {e}")
-        return False
-
-def update_publication(publication_id, title, journal, level, pages, pub_type, pub_date):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE publications
-                SET title = ?, journal = ?, level = ?, pages = ?, publication_type = ?, pub_date = ?
-                WHERE id = ?
-            """, (title, journal, level, pages, pub_type, pub_date, publication_id))
-
-            conn.commit()
-            return True
-
-    except Exception as e:
-        print(f"Ошибка обновления публикации: {e}")
-        return False
-
-def link_employee_publication(employee_id, publication_id):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO employee_publications (employee_id, publication_id)
-        VALUES (?, ?)
-    """, (employee_id, publication_id))
-
-    conn.commit()
-    conn.close()
-
-def get_all_publications():
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                SELECT 
-                    p.id,
-                    p.title,
-                    p.journal,
-                    p.level,
-                    p.pages,
-                    p.publication_type,
-                    p.pub_date,
-                    GROUP_CONCAT(e.fio, '; ') as authors,
-                    CASE 
-                        WHEN p.file_path IS NOT NULL AND p.file_path != '' THEN 'True'
-                        ELSE 'False'
-                    END as has_file
-                FROM publications p
-                LEFT JOIN employee_publications ep 
-                    ON p.id = ep.publication_id
-                LEFT JOIN employees e 
-                    ON ep.employee_id = e.id
-                GROUP BY p.id
-            """)
-
-            return cursor.fetchall()
-
-    except Exception as e:
-        print(f"Ошибка получения публикаций: {e}")
-        return []
-
-def get_all_employees() -> List[Tuple]:
-
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, fio, birth_date, position, degree, rank FROM employees")
-            data = cursor.fetchall()
-            return data
-    except sqlite3.Error as e:
-        print(f"Ошибка базы данных при получении сотрудников: {e}")
-        return []
-    except Exception as e:
-        print(f"Неожиданная ошибка при получении сотрудников: {e}")
-        return []
-
-def get_publications_by_employee(employee_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT p.id, p.title, p.journal
-                FROM publications p
-                JOIN employee_publications ep 
-                    ON p.id = ep.publication_id
-                WHERE ep.employee_id = ?
-                ORDER BY ep.author_order
-            """, (employee_id,))
-            return cursor.fetchall()
-    except Exception as e:
-        print(f"Ошибка: {e}")
-        return []
-
-def get_authors_by_publication(publication_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT e.fio, ep.author_order
-                FROM employees e
-                JOIN employee_publications ep 
-                    ON e.id = ep.employee_id
-                WHERE ep.publication_id = ?
-                ORDER BY ep.author_order
-            """, (publication_id,))
-            return cursor.fetchall()
-    except Exception as e:
-        print(f"Ошибка: {e}")
-        return []
 
 def add_employee(fio, birth_date, position, degree, rank):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    """Добавляет сотрудника и возвращает его id."""
+    fio = _clean(fio)
+    with transaction() as conn:
+        _assert_unique_fio(conn, fio)
+        cursor = conn.execute(
+            "INSERT INTO employees (fio, birth_date, position, degree, rank) VALUES (?, ?, ?, ?, ?)",
+            (fio, birth_date, position, degree, rank),
+        )
+        return cursor.lastrowid
 
-    cursor.execute("""
-    INSERT INTO employees (fio, birth_date, position, degree, rank)
-    VALUES (?, ?, ?, ?, ?)
-    """, (fio, birth_date, position, degree, rank))
-
-    conn.commit()
-    conn.close()
-
-def delete_employee_by_id(employee_id):
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-
-        cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
-        rows_deleted = cursor.rowcount
-        conn.commit()
-
-        conn.close()
-
-        return rows_deleted > 0
-
-    except sqlite3.Error as e:
-        print(f"Ошибка базы данных при удалении сотрудника {employee_id}: {e}")
-        return False
-    except Exception as e:
-        print(f"Неожиданная ошибка при удалении сотрудника {employee_id}: {e}")
-        return False
-
-def search_employees_by_fio(fio: str) -> List[Tuple]:
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, fio, birth_date, position, degree, rank
-                FROM employees
-                WHERE fio LIKE ?
-            """, (f"%{fio}%",))
-            return cursor.fetchall()
-    except sqlite3.Error as e:
-        print(f"Ошибка при поиске: {e}")
-        return []
 
 def update_employee(employee_id, fio, birth_date, position, degree, rank):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE employees
-                SET fio = ?, birth_date = ?, position = ?, degree = ?, rank = ?
-                WHERE id = ?
-            """, (fio, birth_date, position, degree, rank, employee_id))
-            conn.commit()
-            return True
-    except Exception as e:
-        print(f"Ошибка обновления: {e}")
-        return False
-
-def update_publication_file(pub_id, file_path):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE publications
-                SET file_path = ?
-                WHERE id = ?
-            """, (file_path, pub_id))
-            conn.commit()
-    except Exception as e:
-        print(f"Ошибка сохранения файла: {e}")
-
-
-def get_publication_file(pub_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT file_path FROM publications WHERE id = ?
-            """, (pub_id,))
-            result = cursor.fetchone()
-            return result[0] if result else None
-    except Exception as e:
-        print(f"Ошибка получения файла: {e}")
-        return None
-
-def clear_publication_authors(publication_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                DELETE FROM employee_publications
-                WHERE publication_id = ?
-            """, (publication_id,))
-            conn.commit()
-    except Exception as e:
-        print(f"Ошибка очистки авторов: {e}")
-
-def add_achievement(
-        event,
-        achievement,
-        city,
-        organization,
-        work_name,
-        ach_date
-):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO achievements
-        (
-            event,
-            achievement,
-            city,
-            organization,
-            work_name,
-            ach_date
+    """Возвращает True, если запись найдена и обновлена."""
+    fio = _clean(fio)
+    with transaction() as conn:
+        _assert_unique_fio(conn, fio, exclude_id=employee_id)
+        cursor = conn.execute(
+            "UPDATE employees SET fio = ?, birth_date = ?, position = ?, degree = ?, rank = ? WHERE id = ?",
+            (fio, birth_date, position, degree, rank, employee_id),
         )
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        event,
-        achievement,
-        city,
-        organization,
-        work_name,
-        ach_date
-    ))
+        return cursor.rowcount > 0
 
-    ach_id = cursor.lastrowid
 
-    conn.commit()
-    conn.close()
+def delete_employee_by_id(employee_id):
+    """Удаляет сотрудника; его связи с публикациями и достижениями удаляются каскадом."""
+    with transaction() as conn:
+        cursor = conn.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
+        return cursor.rowcount > 0
 
-    return ach_id
 
-def get_all_achievements():
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
+def count_employee_links(employee_id):
+    """(число публикаций, число достижений) сотрудника."""
+    with connection() as conn:
+        pubs = conn.execute(
+            "SELECT COUNT(*) FROM employee_publications WHERE employee_id = ?", (employee_id,)
+        ).fetchone()[0]
+        achs = conn.execute(
+            "SELECT COUNT(*) FROM employee_achievements WHERE employee_id = ?", (employee_id,)
+        ).fetchone()[0]
+    return pubs, achs
 
-            cursor.execute("""
-                SELECT
-                    a.id,
-                    GROUP_CONCAT(e.fio, '; ') as employees,
-                    a.event,
-                    a.achievement,
-                    a.city,
-                    a.organization,
-                    a.work_name,
-                    a.ach_date,
-                    CASE
-                        WHEN a.file_path IS NOT NULL
-                             AND a.file_path != ''
-                        THEN 'True'
-                        ELSE 'False'
-                    END as has_file
-                FROM achievements a
-                LEFT JOIN employee_achievements ea
-                    ON a.id = ea.achievement_id
-                LEFT JOIN employees e
-                    ON ea.employee_id = e.id
-                GROUP BY a.id
-                ORDER BY a.id DESC
-            """)
 
-            return cursor.fetchall()
+def search_employees_by_fio(text):
+    """Поиск по части ФИО без учёта регистра (LIKE в SQLite не умеет регистр кириллицы)."""
+    needle = _norm(text)
+    return [row for row in get_all_employees() if needle in _norm(row["fio"])]
 
-    except Exception as e:
-        print(f"Ошибка получения достижений: {e}")
-        return []
 
-def update_achievement(
-        ach_id,
-        event,
-        achievement,
-        city,
-        organization,
-        work_name,
-        ach_date
-):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
+def resolve_employee_names(names):
+    """По списку ФИО возвращает (id сотрудников без повторов, ненайденные имена)."""
+    index = {}
+    for row in get_all_employees():
+        index.setdefault(_norm(row["fio"]), row["id"])
 
-            cursor.execute("""
-                UPDATE achievements
-                SET
-                    event=?,
-                    achievement=?,
-                    city=?,
-                    organization=?,
-                    work_name=?,
-                    ach_date=?
-                WHERE id=?
-            """, (
-                event,
-                achievement,
-                city,
-                organization,
-                work_name,
-                ach_date,
-                ach_id
-            ))
+    ids = []
+    unknown = []
+    for name in names:
+        employee_id = index.get(_norm(name))
+        if employee_id is None:
+            unknown.append(name)
+        elif employee_id not in ids:
+            ids.append(employee_id)
+    return ids, unknown
 
-            conn.commit()
-            return True
 
-    except Exception as e:
-        print(f"Ошибка обновления достижения: {e}")
-        return False
+# ======================
+# СВЯЗИ (авторы публикаций, участники достижений)
+# ======================
+
+def _replace_links(conn, table, owner_col, owner_id, employee_ids):
+    conn.execute(f"DELETE FROM {table} WHERE {owner_col} = ?", (owner_id,))
+    seen = set()
+    order = 0
+    for employee_id in employee_ids:
+        if employee_id in seen:
+            continue
+        seen.add(employee_id)
+        conn.execute(
+            f"INSERT INTO {table} ({owner_col}, employee_id, sort_order) VALUES (?, ?, ?)",
+            (owner_id, employee_id, order),
+        )
+        order += 1
+
+
+def _names_map(conn, table, owner_col):
+    """{id владельца: 'ФИО1; ФИО2'} в порядке, заданном пользователем."""
+    rows = conn.execute(f"""
+        SELECT l.{owner_col} AS owner_id, e.fio AS fio
+        FROM {table} l
+        JOIN employees e ON e.id = l.employee_id
+        ORDER BY l.{owner_col}, l.sort_order, l.id
+    """)
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["owner_id"], []).append(row["fio"])
+    return {owner_id: "; ".join(names) for owner_id, names in grouped.items()}
+
+
+# ======================
+# ПУБЛИКАЦИИ
+# ======================
+
+def add_publication(title, journal, level, pages, pub_type, pub_date, author_ids=()):
+    """Добавляет публикацию вместе с авторами одной транзакцией и возвращает её id."""
+    with transaction() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO publications (title, journal, level, pages, publication_type, pub_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (title, journal, level, pages, pub_type, pub_date),
+        )
+        publication_id = cursor.lastrowid
+        _replace_links(conn, "employee_publications", "publication_id", publication_id, author_ids)
+        return publication_id
+
+
+def update_publication(publication_id, title, journal, level, pages, pub_type, pub_date, author_ids=None):
+    """Обновляет публикацию; если переданы author_ids, авторы заменяются в той же транзакции."""
+    with transaction() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE publications
+            SET title = ?, journal = ?, level = ?, pages = ?, publication_type = ?, pub_date = ?
+            WHERE id = ?
+            """,
+            (title, journal, level, pages, pub_type, pub_date, publication_id),
+        )
+        if cursor.rowcount == 0:
+            return False
+        if author_ids is not None:
+            _replace_links(conn, "employee_publications", "publication_id", publication_id, author_ids)
+        return True
+
+
+def delete_publication_by_id(publication_id):
+    with transaction() as conn:
+        cursor = conn.execute("DELETE FROM publications WHERE id = ?", (publication_id,))
+        return cursor.rowcount > 0
+
+
+def get_all_publications():
+    """Строки: id, название, издание, уровень, страницы, тип, дата, авторы, файл ('Да' или '')."""
+    with connection() as conn:
+        rows = conn.execute("""
+            SELECT id, title, journal, level, pages, publication_type, pub_date, file_path
+            FROM publications
+            ORDER BY id DESC
+        """).fetchall()
+        authors = _names_map(conn, "employee_publications", "publication_id")
+    return [
+        (
+            row["id"], row["title"], row["journal"], row["level"], row["pages"],
+            row["publication_type"], row["pub_date"], authors.get(row["id"], ""),
+            "Да" if row["file_path"] else "",
+        )
+        for row in rows
+    ]
+
+
+def get_publication(publication_id):
+    """Одна публикация словарём (или None)."""
+    with connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, title, journal, level, pages, publication_type, pub_date, file_path
+            FROM publications WHERE id = ?
+            """,
+            (publication_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        authors = _names_map(conn, "employee_publications", "publication_id")
+    return {
+        "title": row["title"],
+        "journal": row["journal"],
+        "level": row["level"],
+        "pages": row["pages"],
+        "type": row["publication_type"],
+        "date": row["pub_date"],
+        "authors": authors.get(row["id"], ""),
+    }
+
+
+def get_publications_by_employee(employee_id):
+    with connection() as conn:
+        return conn.execute(
+            """
+            SELECT p.id, p.title, p.journal
+            FROM publications p
+            JOIN employee_publications ep ON ep.publication_id = p.id
+            WHERE ep.employee_id = ?
+            ORDER BY p.pub_date DESC, p.id DESC
+            """,
+            (employee_id,),
+        ).fetchall()
+
+
+def get_authors_by_publication(publication_id):
+    with connection() as conn:
+        return conn.execute(
+            """
+            SELECT e.fio, ep.sort_order
+            FROM employees e
+            JOIN employee_publications ep ON ep.employee_id = e.id
+            WHERE ep.publication_id = ?
+            ORDER BY ep.sort_order, ep.id
+            """,
+            (publication_id,),
+        ).fetchall()
+
+
+def update_publication_file(publication_id, file_path):
+    with transaction() as conn:
+        conn.execute("UPDATE publications SET file_path = ? WHERE id = ?", (file_path, publication_id))
+
+
+def get_publication_file(publication_id):
+    with connection() as conn:
+        row = conn.execute(
+            "SELECT file_path FROM publications WHERE id = ?", (publication_id,)
+        ).fetchone()
+    return row["file_path"] if row else None
+
+
+# ======================
+# ДОСТИЖЕНИЯ
+# ======================
+
+def add_achievement(event, achievement, city, organization, work_name, ach_date, employee_ids=()):
+    """Добавляет достижение вместе с участниками одной транзакцией и возвращает его id."""
+    with transaction() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO achievements (event, achievement, city, organization, work_name, ach_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (event, achievement, city, organization, work_name, ach_date),
+        )
+        achievement_id = cursor.lastrowid
+        _replace_links(conn, "employee_achievements", "achievement_id", achievement_id, employee_ids)
+        return achievement_id
+
+
+def update_achievement(ach_id, event, achievement, city, organization, work_name, ach_date, employee_ids=None):
+    with transaction() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE achievements
+            SET event = ?, achievement = ?, city = ?, organization = ?, work_name = ?, ach_date = ?
+            WHERE id = ?
+            """,
+            (event, achievement, city, organization, work_name, ach_date, ach_id),
+        )
+        if cursor.rowcount == 0:
+            return False
+        if employee_ids is not None:
+            _replace_links(conn, "employee_achievements", "achievement_id", ach_id, employee_ids)
+        return True
+
 
 def delete_achievement_by_id(ach_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
+    with transaction() as conn:
+        cursor = conn.execute("DELETE FROM achievements WHERE id = ?", (ach_id,))
+        return cursor.rowcount > 0
 
-            cursor.execute("""
-                DELETE FROM achievements
-                WHERE id = ?
-            """, (ach_id,))
 
-            conn.commit()
-            return True
+def get_all_achievements():
+    """Строки: id, сотрудники, мероприятие, достижение, город, организация, работа, дата, файл ('Да' или '')."""
+    with connection() as conn:
+        rows = conn.execute("""
+            SELECT id, event, achievement, city, organization, work_name, ach_date, file_path
+            FROM achievements
+            ORDER BY id DESC
+        """).fetchall()
+        names = _names_map(conn, "employee_achievements", "achievement_id")
+    return [
+        (
+            row["id"], names.get(row["id"], ""), row["event"], row["achievement"], row["city"],
+            row["organization"], row["work_name"], row["ach_date"], "Да" if row["file_path"] else "",
+        )
+        for row in rows
+    ]
 
-    except Exception as e:
-        print(f"Ошибка удаления достижения: {e}")
-        return False
+
+def get_achievement(ach_id):
+    """Одно достижение словарём (или None)."""
+    with connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, event, achievement, city, organization, work_name, ach_date
+            FROM achievements WHERE id = ?
+            """,
+            (ach_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        names = _names_map(conn, "employee_achievements", "achievement_id")
+    return {
+        "employees": names.get(row["id"], ""),
+        "event": row["event"],
+        "achievement": row["achievement"],
+        "city": row["city"],
+        "organization": row["organization"],
+        "work": row["work_name"],
+        "date": row["ach_date"],
+    }
+
 
 def update_achievement_file(ach_id, file_path):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE achievements
-                SET file_path = ?
-                WHERE id = ?
-            """, (file_path, ach_id))
-            conn.commit()
-    except Exception as e:
-        print(f"Ошибка сохранения файла достижения: {e}")
+    with transaction() as conn:
+        conn.execute("UPDATE achievements SET file_path = ? WHERE id = ?", (file_path, ach_id))
+
 
 def get_achievement_file(ach_id):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
+    with connection() as conn:
+        row = conn.execute("SELECT file_path FROM achievements WHERE id = ?", (ach_id,)).fetchone()
+    return row["file_path"] if row else None
 
-            cursor.execute("""
-                SELECT file_path FROM achievements WHERE id = ?
-            """, (ach_id,))
 
-            result = cursor.fetchone()
-            return result[0] if result else None
+# ======================
+# ОТЧЁТЫ
+# ======================
 
-    except Exception as e:
-        print(f"Ошибка получения файла: {e}")
-        return None
+def get_employee_report(employee_ids=None):
+    """Для каждого сотрудника: (id, ФИО, [названия публикаций], [достижения]).
 
-def search_achievements(text: str):
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
+    employee_ids=None означает всех сотрудников. Связи берутся по id, поэтому
+    тёзки и совпадения подстрок в ФИО не путаются.
+    """
+    with connection() as conn:
+        employees = conn.execute("SELECT id, fio FROM employees").fetchall()
 
-            cursor.execute("""
-                SELECT 
-                    a.id,
-                    e.fio,
-                    a.event,
-                    a.achievement,
-                    a.city,
-                    a.organization,
-                    a.work_name,
-                    a.file_path
-                FROM achievements a
-                LEFT JOIN employees e ON a.employee_id = e.id
-                WHERE 
-                    e.fio LIKE ? OR
-                    a.event LIKE ? OR
-                    a.achievement LIKE ? OR
-                    a.city LIKE ? OR
-                    a.organization LIKE ? OR
-                    a.work_name LIKE ?
-            """, tuple([f"%{text}%"] * 6))
+        publications = {}
+        for row in conn.execute("""
+            SELECT ep.employee_id AS employee_id, p.title AS title
+            FROM employee_publications ep
+            JOIN publications p ON p.id = ep.publication_id
+            ORDER BY p.pub_date, p.id
+        """):
+            publications.setdefault(row["employee_id"], []).append(row["title"] or "")
 
-            return cursor.fetchall()
+        achievements = {}
+        for row in conn.execute("""
+            SELECT ea.employee_id AS employee_id, a.achievement AS achievement
+            FROM employee_achievements ea
+            JOIN achievements a ON a.id = ea.achievement_id
+            ORDER BY a.ach_date, a.id
+        """):
+            achievements.setdefault(row["employee_id"], []).append(row["achievement"] or "")
 
-    except Exception as e:
-        print(f"Ошибка поиска достижений: {e}")
-        return []
-
-def link_employee_achievement(employee_id, achievement_id):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO employee_achievements (employee_id, achievement_id)
-        VALUES (?, ?)
-    """, (employee_id, achievement_id))
-
-    conn.commit()
-    conn.close()
-
-def clear_achievement_employees(achievement_id):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        DELETE FROM employee_achievements
-        WHERE achievement_id = ?
-    """, (achievement_id,))
-
-    conn.commit()
-    conn.close()
-
-def ensure_employee_achievements():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS employee_achievements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee_id INTEGER,
-        achievement_id INTEGER
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+    result = []
+    for employee in sorted(employees, key=lambda row: _norm(row["fio"])):
+        if employee_ids is not None and employee["id"] not in employee_ids:
+            continue
+        result.append((
+            employee["id"], employee["fio"],
+            publications.get(employee["id"], []),
+            achievements.get(employee["id"], []),
+        ))
+    return result

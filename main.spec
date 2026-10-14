@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('main.ui', '.'), ('style.qss', '.'), ('employee_system.db', '.'), ('files', 'files')]
+datas = [('main.ui', '.'), ('style.qss', '.')]
 binaries = []
 hiddenimports = ['openpyxl']
 tmp_ret = collect_all('openpyxl')

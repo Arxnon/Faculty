@@ -85,20 +85,24 @@ class HistoryTab(QtWidgets.QWidget):
     def load_history(self):
         rows = self.history_service.get_history()
 
+        # Пока таблица заполняется, сортировку отключаем: иначе строки
+        # переставляются на ходу и данные попадают не в те ячейки.
+        self.tableWidget.setSortingEnabled(False)
         self.tableWidget.setRowCount(len(rows))
 
         for i, row in enumerate(rows):
             for j, value in enumerate(row):
-                item = QtWidgets.QTableWidgetItem(str(value))
+                item = QtWidgets.QTableWidgetItem("" if value is None else str(value))
 
                 # запрет редактирования
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
 
                 self.tableWidget.setItem(i, j, item)
 
+        self.tableWidget.setSortingEnabled(True)
+
         # авто-высота строк
         self.tableWidget.resizeRowsToContents()
-
 
     def refresh(self):
         self.load_history()

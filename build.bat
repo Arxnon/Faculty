@@ -16,8 +16,6 @@ pyinstaller ^
 --name Faculty ^
 --add-data "main.ui;." ^
 --add-data "style.qss;." ^
---add-data "employee_system.db;." ^
---add-data "files;files" ^
 main.py
 
 echo.

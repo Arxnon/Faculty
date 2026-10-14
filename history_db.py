@@ -1,34 +1,34 @@
-import sqlite3
+"""Журнал изменений. Таблица history создаётся миграцией в db.py."""
+import json
 from datetime import datetime
 
-DB_PATH = "employee_system.db"
+from db import connection, transaction
+
+
+def _to_text(value):
+    """None остаётся NULL, строка сохраняется как есть, остальное (словари) идёт в JSON."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False, default=str)
+
 
 def add_history(entity, entity_id, action, old_data, new_data):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity TEXT,
-    entity_id INTEGER,
-    action TEXT,
-    old_data TEXT,
-    new_data TEXT,
-    timestamp TEXT
-    )
-    """)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-        INSERT INTO history (entity, entity_id, action, old_data, new_data, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (entity, entity_id, action, str(old_data), str(new_data), timestamp))
-    conn.commit()
-    conn.close()
+    with transaction() as conn:
+        conn.execute(
+            """
+            INSERT INTO history (entity, entity_id, action, old_data, new_data, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (entity, entity_id, action, _to_text(old_data), _to_text(new_data), timestamp),
+        )
+
 
 def get_history():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT entity, entity_id, action, old_data, new_data, timestamp FROM history ORDER BY id DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT entity, entity_id, action, old_data, new_data, timestamp FROM history ORDER BY id DESC"
+        ).fetchall()
+    return [tuple(row) for row in rows]

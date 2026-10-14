@@ -1,66 +1,76 @@
+import logging
+import sys
+import traceback
+from logging.handlers import RotatingFileHandler
+
 from PyQt5 import QtWidgets, uic
-import os, sys
-from tabs.employees_tab import EmployeesTab
+
+from db import DatabaseCorruptedError, init_database
+from paths import log_path, resource_path
 from services.history_service import HistoryService
+from tabs.achievements_tab import AchievementsTab
+from tabs.employees_tab import EmployeesTab
 from tabs.history_tab import HistoryTab
 from tabs.publications_tab import PublicationsTab
-from tabs.achievements_tab import AchievementsTab
-from database import ensure_publications_schema, ensure_employee_publications, ensure_achievements_schema, ensure_employee_achievements
 from tabs.reports_tab import ReportsTab
 
-ensure_publications_schema()
-ensure_employee_publications()
-ensure_achievements_schema()
-ensure_employee_achievements()
+log = logging.getLogger("faculty")
 
-def resource_path(relative_path):
+
+def setup_logging():
+    handler = RotatingFileHandler(
+        log_path(), maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    )
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+
+
+def handle_exception(exc_type, exc, tb):
+    """Необработанная ошибка: пишем в лог и показываем сообщение, окно не закрывается."""
+    log.error("Необработанное исключение", exc_info=(exc_type, exc, tb))
+
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc, tb)
+        return
+
     try:
-        base_path = sys._MEIPASS
+        QtWidgets.QMessageBox.critical(
+            None,
+            "Непредвиденная ошибка",
+            f"{exc}\n\nПодробности записаны в журнал:\n{log_path()}",
+        )
     except Exception:
-        base_path = os.path.abspath(".")
+        traceback.print_exception(exc_type, exc, tb)
 
-    return os.path.join(base_path, relative_path)
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi(
-            resource_path("main.ui"),
-            self
-        )
+        uic.loadUi(resource_path("main.ui"), self)
         self.history_service = HistoryService()
 
         # Стили
         try:
-            with open(
-                    resource_path("style.qss"),
-                    "r",
-                    encoding="utf-8"
-            ) as f:
+            with open(resource_path("style.qss"), "r", encoding="utf-8") as f:
                 self.setStyleSheet(f.read())
-        except Exception as e:
-            print(f"Не удалось загрузить стиль: {e}")
+        except OSError:
+            log.warning("Не удалось загрузить стиль", exc_info=True)
 
-        # Подключаем вкладку сотрудники
+        # История создаётся первой: остальные вкладки обновляют её после правок
         self.employees_tab = EmployeesTab(self, self.history_service)
-
-        # Подключение публикаций
         self.publications_tab = PublicationsTab(self, self.history_service)
-
-        # Подключение достижений
         self.achievements_tab = AchievementsTab(self, self.history_service)
 
-        #Подключение истории
         self.history_tab = HistoryTab(self.history_service)
         self.tabWidget.addTab(self.history_tab, "История изменений")
 
-        # Подключение отчетов
         self.reports_tab = ReportsTab(self)
 
-
     def closeEvent(self, event):
-        print("closeEvent called")
-
         msg = QtWidgets.QMessageBox(self)
         msg.setWindowTitle("Подтверждение выхода")
 
@@ -69,20 +79,37 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             msg.setText("Вы действительно хотите выйти?")
 
-        msg.setStandardButtons(
-            QtWidgets.QMessageBox.Yes |
-            QtWidgets.QMessageBox.No
-        )
+        msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
-        reply = msg.exec_()
-
-        if reply == QtWidgets.QMessageBox.Yes:
+        if msg.exec_() == QtWidgets.QMessageBox.Yes:
             event.accept()
         else:
             event.ignore()
 
-if __name__ == "__main__":
-    app = QtWidgets.QApplication([])
+
+def main():
+    setup_logging()
+    sys.excepthook = handle_exception
+
+    app = QtWidgets.QApplication(sys.argv)
+
+    try:
+        init_database()
+    except DatabaseCorruptedError as exc:
+        log.error("База данных недоступна: %s", exc)
+        QtWidgets.QMessageBox.critical(None, "База данных", str(exc))
+        return 1
+    except Exception as exc:
+        log.exception("Не удалось подготовить базу данных")
+        QtWidgets.QMessageBox.critical(
+            None, "База данных", f"Не удалось открыть базу данных:\n{exc}"
+        )
+        return 1
+
     window = MainWindow()
     window.show()
-    app.exec_()
+    return app.exec_()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

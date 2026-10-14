@@ -1,11 +1,24 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtCore import QDate
+
 from database import (
+    DuplicateEmployeeError,
     add_employee,
-    get_all_employees,
+    count_employee_links,
     delete_employee_by_id,
+    get_all_employees,
+    get_employee,
     search_employees_by_fio,
-    update_employee
+    update_employee,
 )
+from ui_common import cell_text
+
+FIO_ERROR = "ФИО не может быть пустым или состоять только из пробелов и/или цифр"
+
+
+def is_valid_fio(fio):
+    stripped = (fio or "").strip()
+    return bool(stripped) and not stripped.replace(" ", "").isdigit()
 
 
 class EmployeesTab:
@@ -58,6 +71,54 @@ class EmployeesTab:
         item = self.tableEmployees.item(row, col)
         return item.text() if item else ""
 
+    def _row_of(self, employee_id):
+        """Номер строки таблицы с данным сотрудником (или None)."""
+        for row in range(self.tableEmployees.rowCount()):
+            if self.get_item_text(row, 0) == str(employee_id):
+                return row
+        return None
+
+    def _select_row_by_id(self, employee_id):
+        row = self._row_of(employee_id)
+        if row is not None:
+            self.tableEmployees.selectRow(row)
+        return row
+
+    def _form_data(self):
+        return {
+            "fio": " ".join(self.inputName.text().split()),
+            "birth_date": self.inputBirthDate.date().toString("yyyy-MM-dd"),
+            "position": self.inputPosition.text().strip(),
+            "degree": self.inputDegree.text().strip(),
+            "rank": self.inputRank.text().strip(),
+        }
+
+    @staticmethod
+    def _row_to_dict(row):
+        return {
+            "fio": row["fio"],
+            "birth_date": row["birth_date"],
+            "position": row["position"],
+            "degree": row["degree"],
+            "rank": row["rank"],
+        }
+
+    def _record(self, employee_id, action, old_data, new_data):
+        self.history.add("employee", employee_id, action, old_data, new_data)
+        self.parent.history_tab.refresh()
+
+    def refresh_related_tabs(self):
+        """Список сотрудников используют вкладки публикаций и достижений."""
+        publications = getattr(self.parent, "publications_tab", None)
+        if publications is not None:
+            publications.refresh_authors_list()
+            publications.load_publications()
+
+        achievements = getattr(self.parent, "achievements_tab", None)
+        if achievements is not None:
+            achievements.refresh_employees()
+            achievements.load_achievements()
+
     def fill_table(self, data):
         self.tableEmployees.setRowCount(len(data))
         self.tableEmployees.setColumnCount(6)
@@ -70,19 +131,21 @@ class EmployeesTab:
                 self.tableEmployees.setItem(
                     row_idx,
                     col_idx,
-                    QtWidgets.QTableWidgetItem(str(value))
+                    QtWidgets.QTableWidgetItem(cell_text(value))
                 )
 
         # скрываем ID
         self.tableEmployees.setColumnHidden(0, True)
+
+        if self.selected_employee_id is not None:
+            self._select_row_by_id(self.selected_employee_id)
 
     # ======================
     # ЗАГРУЗКА
     # ======================
 
     def load_employees(self):
-        data = get_all_employees()
-        self.fill_table(data)
+        self.fill_table(get_all_employees())
 
     def search_employee(self):
         fio = self.inputSearch.text().strip()
@@ -91,8 +154,7 @@ class EmployeesTab:
             self.load_employees()
             return
 
-        data = search_employees_by_fio(fio)
-        self.fill_table(data)
+        self.fill_table(search_employees_by_fio(fio))
 
     # ======================
     # ЛОГИКА ИЗМЕНЕНИЙ
@@ -102,10 +164,10 @@ class EmployeesTab:
         if self.selected_employee_id is not None:
             self.is_dirty = True
 
-    def on_row_change(self, row,):
-        current_row = self.tableEmployees.currentRow()
+    def on_row_change(self, row):
+        clicked_id = int(self.get_item_text(row, 0))
 
-        if self.is_dirty:
+        if self.is_dirty and self.selected_employee_id is not None:
             reply = QtWidgets.QMessageBox.question(
                 self.parent,
                 "Сохранить изменения?",
@@ -114,18 +176,23 @@ class EmployeesTab:
             )
 
             if reply == QtWidgets.QMessageBox.Yes:
-                self.update_employee_data()
+                if not self.update_employee_data():
+                    # Не сохранилось: остаёмся на прежнем сотруднике, ничего не теряем
+                    self._select_row_by_id(self.selected_employee_id)
+                    return
 
             elif reply == QtWidgets.QMessageBox.No:
                 self.is_dirty = False
 
-            elif reply == QtWidgets.QMessageBox.Cancel:
-                self.tableEmployees.blockSignals(True)
-                self.tableEmployees.selectRow(current_row)
-                self.tableEmployees.blockSignals(False)
+            else:
+                self._select_row_by_id(self.selected_employee_id)
                 return
 
-        self.load_employee_to_fields(row)
+        # После сохранения таблица перезагружена и порядок строк мог измениться,
+        # поэтому нужную строку ищем по id, а не по номеру.
+        new_row = self._select_row_by_id(clicked_id)
+        if new_row is not None:
+            self.load_employee_to_fields(new_row)
         self.is_dirty = False
 
     # ======================
@@ -133,48 +200,25 @@ class EmployeesTab:
     # ======================
 
     def add_employee(self):
-        fio = self.inputName.text()
-        birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
-        position = self.inputPosition.text()
-        degree = self.inputDegree.text()
-        rank = self.inputRank.text()
+        data = self._form_data()
 
-        fio_stripped = fio.replace(" ", "")
-
-        if not fio or fio_stripped == "" or fio_stripped.isdigit():
-            QtWidgets.QMessageBox.warning(
-                self.parent,
-                "Ошибка",
-                "ФИО не может быть пустым или состоять только из пробелов и/или цифр"
-            )
+        if not is_valid_fio(data["fio"]):
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", FIO_ERROR)
             return
 
-        # добавляем сотрудника в БД и получаем его ID
-        employee_id = add_employee(fio, birth_date, position, degree, rank)
+        try:
+            employee_id = add_employee(**data)
+        except DuplicateEmployeeError as exc:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", str(exc))
+            return
 
-        # история
-        self.history.add(
-            "employee",
-            employee_id,
-            "add",
-            None,
-            str({
-                "fio": fio,
-                "birth_date": birth_date,
-                "position": position,
-                "degree": degree,
-                "rank": rank
-            })
-        )
-
-        # обновляем вкладку истории
-        self.parent.history_tab.refresh()
+        self._record(employee_id, "add", None, data)
 
         QtWidgets.QMessageBox.information(self.parent, "Успех", "Сотрудник добавлен")
 
         self.clear_fields()
         self.load_employees()
-        self.parent.publications_tab.refresh_authors_list()
+        self.refresh_related_tabs()
 
     def delete_employee(self):
         row = self.tableEmployees.currentRow()
@@ -184,136 +228,114 @@ class EmployeesTab:
             return
 
         employee_id = int(self.get_item_text(row, 0))
+        employee = get_employee(employee_id)
 
-        old_data = str({
-            "fio": self.get_item_text(row, 1),
-            "birth_date": self.get_item_text(row, 2),
-            "position": self.get_item_text(row, 3),
-            "degree": self.get_item_text(row, 4),
-            "rank": self.get_item_text(row, 5),
-        })
+        if employee is None:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Сотрудник уже удалён")
+            self.load_employees()
+            return
 
-        success = delete_employee_by_id(employee_id)
-
-        if success:
-            # история
-            self.history.add(
-                "employee",
-                employee_id,
-                "delete",
-                old_data,
-                None
+        question = f"Удалить сотрудника «{employee['fio']}»?"
+        publications, achievements = count_employee_links(employee_id)
+        if publications or achievements:
+            question += (
+                f"\n\nОн указан в публикациях: {publications}, в достижениях: {achievements}. "
+                "Эти связи будут удалены (сами публикации и достижения останутся)."
             )
 
-            # обновляем вкладку истории
-            self.parent.history_tab.refresh()
+        reply = QtWidgets.QMessageBox.question(
+            self.parent,
+            "Подтверждение",
+            question,
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No
+        )
 
+        if reply != QtWidgets.QMessageBox.Yes:
+            return
+
+        old_data = self._row_to_dict(employee)
+
+        if delete_employee_by_id(employee_id):
+            self._record(employee_id, "delete", old_data, None)
             QtWidgets.QMessageBox.information(self.parent, "Успех", "Удалено")
         else:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
 
+        if self.selected_employee_id == employee_id:
+            self.clear_fields()
+
         self.load_employees()
-        self.parent.publications_tab.load_publications()
+        self.refresh_related_tabs()
 
     def update_employee_data(self):
+        """Сохраняет изменения выбранного сотрудника. Возвращает True, если всё получилось."""
         if self.selected_employee_id is None:
             QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите сотрудника")
-            return
+            return False
 
-        row = self.tableEmployees.currentRow()
+        data = self._form_data()
 
-        old_data = str({
-            "fio": self.get_item_text(row, 1),
-            "birth_date": self.get_item_text(row, 2),
-            "position": self.get_item_text(row, 3),
-            "degree": self.get_item_text(row, 4),
-            "rank": self.get_item_text(row, 5),
-        })
+        if not is_valid_fio(data["fio"]):
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", FIO_ERROR)
+            return False
 
-        fio = self.inputName.text()
-        birth_date = self.inputBirthDate.date().toString("yyyy-MM-dd")
-        position = self.inputPosition.text()
-        degree = self.inputDegree.text()
-        rank = self.inputRank.text()
-
-        #ВАЛИДАЦИЯ
-        if not fio.strip() or fio.strip().isdigit():
-            QtWidgets.QMessageBox.warning(
-                self.parent,
-                "Ошибка",
-                "ФИО не может быть пустым или состоять только из пробелов и/или цифр"
-            )
-            return
-
-        new_data = str({
-            "fio": fio,
-            "birth_date": birth_date,
-            "position": position,
-            "degree": degree,
-            "rank": rank,
-        })
-
-        success = update_employee(
-            self.selected_employee_id,
-            fio,
-            birth_date,
-            position,
-            degree,
-            rank
-        )
-
-        if success:
-            self.history.add(
-                "employee",
-                self.selected_employee_id,
-                "update",
-                old_data,
-                new_data
-            )
-
-            self.parent.history_tab.refresh()
-
-            QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
+        # Прежние данные берём из базы, а не из таблицы: к этому моменту
+        # в таблице уже может быть выделена другая строка.
+        old_row = get_employee(self.selected_employee_id)
+        if old_row is None:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Сотрудник не найден: возможно, он уже удалён")
+            self.clear_fields()
             self.load_employees()
-            self.is_dirty = False
-        else:
+            return False
+
+        try:
+            success = update_employee(self.selected_employee_id, **data)
+        except DuplicateEmployeeError as exc:
+            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", str(exc))
+            return False
+
+        if not success:
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
-        self.parent.publications_tab.load_publications()
+            return False
+
+        self._record(self.selected_employee_id, "update", self._row_to_dict(old_row), data)
+
+        QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
+        self.is_dirty = False
+        self.load_employees()
+        self.refresh_related_tabs()
+        return True
 
     def load_employee_to_fields(self, row):
         self.selected_employee_id = int(self.get_item_text(row, 0))
 
-        # блокируем сигналы
-        self.inputName.blockSignals(True)
-        self.inputBirthDate.blockSignals(True)
-        self.inputPosition.blockSignals(True)
-        self.inputDegree.blockSignals(True)
-        self.inputRank.blockSignals(True)
+        widgets = (
+            self.inputName, self.inputBirthDate, self.inputPosition,
+            self.inputDegree, self.inputRank,
+        )
+        # блокируем сигналы, чтобы заполнение полей не считалось правкой
+        for widget in widgets:
+            widget.blockSignals(True)
 
         self.inputName.setText(self.get_item_text(row, 1))
 
         date_str = self.get_item_text(row, 2)
         if date_str:
-            from PyQt5.QtCore import QDate
             self.inputBirthDate.setDate(QDate.fromString(date_str, "yyyy-MM-dd"))
 
         self.inputPosition.setText(self.get_item_text(row, 3))
         self.inputDegree.setText(self.get_item_text(row, 4))
         self.inputRank.setText(self.get_item_text(row, 5))
 
-        # включаем обратно
-        self.inputName.blockSignals(False)
-        self.inputBirthDate.blockSignals(False)
-        self.inputPosition.blockSignals(False)
-        self.inputDegree.blockSignals(False)
-        self.inputRank.blockSignals(False)
-
-    # ======================
-    # RUST
-    # ======================
+        for widget in widgets:
+            widget.blockSignals(False)
 
     def clear_fields(self):
+        # Сначала сбрасываем выбор, чтобы очистка полей не отмечала форму изменённой
+        self.selected_employee_id = None
         self.inputName.clear()
         self.inputPosition.clear()
         self.inputDegree.clear()
         self.inputRank.clear()
+        self.is_dirty = False

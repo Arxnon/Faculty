@@ -1,40 +1,22 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import QDate
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QCompleter
-from services.file_service import FileService
+from PyQt5.QtCore import QDate, Qt
+
 from database import (
-    get_all_publications,
     add_publication,
     delete_publication_by_id,
-    update_publication,
-    get_publication_file,
-    update_publication_file,
-    clear_publication_authors,
     get_all_employees,
-    link_employee_publication
+    get_all_publications,
+    get_publication,
+    get_publication_file,
+    resolve_employee_names,
+    update_publication,
+    update_publication_file,
 )
+from services.file_service import FileService
+from ui_common import cell_text, make_names_completer, split_names
 
-class MultiCompleter(QCompleter):
-    def splitPath(self, path):
-        return [(path or "").split(";")[-1].strip()]
+FILES_FOLDER = "files/publications"
 
-    def pathFromIndex(self, index):
-        widget = self.widget()
-        if widget is None:
-            return ""
-
-        text = widget.text() or ""
-        parts = text.split(";")
-
-        value = index.data()
-        if value is None:
-            return text
-
-        if len(parts) > 1:
-            return "; ".join([p.strip() for p in parts[:-1]]) + "; " + value
-        else:
-            return value
 
 class PublicationsTab:
     def __init__(self, parent, history_service):
@@ -61,7 +43,7 @@ class PublicationsTab:
         self.search = parent.searchPublications
         self.search.textChanged.connect(self.search_publications)
 
-        #Список авторов
+        # Список авторов
         self.refresh_authors_list()
 
         # кнопки
@@ -72,7 +54,7 @@ class PublicationsTab:
 
         self.parent.btnUpdatePub.clicked.connect(self.update_publication_data)
 
-        #Работа с файлом
+        # Работа с файлом
         self.file_path = None
         self.current_file_path = None
 
@@ -90,14 +72,8 @@ class PublicationsTab:
     # ======================
 
     def refresh_authors_list(self):
-        employees = get_all_employees()
-        fio_list = [emp[1] for emp in employees]
-
-        completer = MultiCompleter(fio_list)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setCompletionMode(QCompleter.PopupCompletion)
-
-        self.parent.inputAuthors.setCompleter(completer)
+        fio_list = [row["fio"] for row in get_all_employees()]
+        self.parent.inputAuthors.setCompleter(make_names_completer(fio_list))
 
     def get_item_text(self, row, col):
         item = self.table.item(row, col)
@@ -124,7 +100,7 @@ class PublicationsTab:
                 self.table.setItem(
                     row_idx,
                     col_idx,
-                    QtWidgets.QTableWidgetItem(str(value) if value else "")
+                    QtWidgets.QTableWidgetItem(cell_text(value))
                 )
 
         # скрываем ID
@@ -177,13 +153,62 @@ class PublicationsTab:
             if action == delete_action:
                 self.delete_file(pub_id)
 
+    def _warn(self, text, title="Ошибка"):
+        QtWidgets.QMessageBox.warning(self.parent, title, text)
+
+    def _collect_form(self):
+        """Читает и проверяет форму. Ничего не меняет в базе.
+
+        Возвращает (данные, id авторов) или None, если что-то не так
+        (причина уже показана пользователю).
+        """
+        title = self.inputTitle.text().strip()
+        if not title:
+            self._warn("Введите название публикации")
+            return None
+
+        names = split_names(self.parent.inputAuthors.text())
+        if not names:
+            self._warn("Поле 'Авторы' не может быть пустым")
+            return None
+
+        author_ids, unknown = resolve_employee_names(names)
+        if unknown:
+            self._warn(f"Сотрудник '{unknown[0]}' отсутствует в базе данных")
+            return None
+
+        data = {
+            "title": title,
+            "journal": self.inputJournal.text().strip(),
+            "level": self.comboLevel.currentText(),
+            "pages": self.inputPages.value(),
+            "pub_type": self.comboType.currentText(),
+            "pub_date": self.parent.inputPubDate.date().toString("yyyy-MM-dd"),
+        }
+        return data, author_ids
+
+    def _attach_file(self, entity_id, old_path):
+        """Копирует выбранный файл в хранилище.
+
+        Возвращает (путь для БД, был ли прикреплён новый файл).
+        """
+        if not self.file_path:
+            return old_path, False
+
+        try:
+            stored = FileService.save_file(self.file_path, entity_id, FILES_FOLDER, old_path)
+        except OSError as exc:
+            self._warn(f"Не удалось прикрепить файл: {exc}", "Файл")
+            return old_path, False
+
+        QtWidgets.QMessageBox.information(self.parent, "Файл", "Файл успешно прикреплён")
+        return stored, True
 
     # ======================
     # ЗАГРУЗКА
     # ======================
     def load_publications(self):
-        data = get_all_publications()
-        self.fill_table(data)
+        self.fill_table(get_all_publications())
 
     def search_publications(self):
         text = self.search.text().strip().lower()
@@ -193,11 +218,10 @@ class PublicationsTab:
             return
 
         filtered = []
-        data = get_all_publications()
 
-        for row in data:
-            # ищем по названию и журналу
-            if text in str(row[1]).lower() or text in str(row[2]).lower():
+        for row in get_all_publications():
+            # ищем по названию, изданию и авторам
+            if any(text in cell_text(row[index]).lower() for index in (1, 2, 7)):
                 filtered.append(row)
 
         self.fill_table(filtered)
@@ -207,113 +231,31 @@ class PublicationsTab:
     # ======================
 
     def add_publication(self):
-        title = self.inputTitle.text()
-        journal = self.inputJournal.text()
-        level = self.comboLevel.currentText()
-        pages = self.inputPages.value()
-        pub_type = self.comboType.currentText()
-        pub_date = self.parent.inputPubDate.date().toString("yyyy-MM-dd")
-
-        if not title.strip():
-            QtWidgets.QMessageBox.warning(
-                self.parent,
-                "Ошибка",
-                "Введите название публикации"
-            )
+        form = self._collect_form()
+        if form is None:
             return
-        authors_text = self.parent.inputAuthors.text().strip()
+        data, author_ids = form
 
-        if not authors_text:
-            QtWidgets.QMessageBox.warning(
-                self.parent,
-                "Ошибка",
-                "Поле 'Авторы' не может быть пустым"
-            )
-            return
-
-        authors_list = [
-            a.strip()
-            for a in authors_text.split(";")
-            if a.strip()
-        ]
-
-        employees = get_all_employees()
-        employee_names = {emp[1] for emp in employees}
-
-        for author in authors_list:
-            if author not in employee_names:
-                QtWidgets.QMessageBox.warning(
-                    self.parent,
-                    "Ошибка",
-                    f"Сотрудник '{author}' отсутствует в базе данных"
-                )
-                return
-
-        # добавляем в БД
+        # публикация и авторы сохраняются одной транзакцией
         pub_id = add_publication(
-            title,
-            journal,
-            level,
-            pages,
-            pub_type,
-            pub_date
+            data["title"],
+            data["journal"],
+            data["level"],
+            data["pages"],
+            data["pub_type"],
+            data["pub_date"],
+            author_ids,
         )
 
-        file_path = FileService.save_file(
-            self.file_path,
-            pub_id,
-            "files/publications",
-            None
-        )
-
-        update_publication_file(pub_id, file_path)
-
-        if file_path:
-            QtWidgets.QMessageBox.information(
-                self.parent,
-                "Файл",
-                "Файл успешно прикреплён"
-            )
-
-        if file_path:
-            self.history.add(
-                "publication_file",
-                pub_id,
-                "add",
-                None,
-                file_path
-            )
+        file_path, attached = self._attach_file(pub_id, None)
+        if attached:
+            update_publication_file(pub_id, file_path)
+            self.history.add("publication_file", pub_id, "add", None, file_path)
 
         self.file_path = None
         self.current_file_path = None
 
-        authors_text = self.parent.inputAuthors.text()
-        authors_list = [a.strip() for a in authors_text.split(";") if a.strip()]
-
-        employees = get_all_employees()
-
-        for author in authors_list:
-            for emp in employees:
-                if emp[1] == author:
-                    link_employee_publication(emp[0], pub_id)
-                    break  # ← ВАЖНО: только первый найденный. Проверка на дубликаты дескать
-
-        # история
-        self.history.add(
-            "publication",
-            pub_id,
-            "add",
-            None,
-            str({
-                "title": title,
-                "journal": journal,
-                "level": level,
-                "pages": pages,
-                "type": pub_type
-            })
-        )
-
-        # обновляем историю
+        self.history.add("publication", pub_id, "add", None, get_publication(pub_id))
         self.parent.history_tab.refresh()
 
         QtWidgets.QMessageBox.information(self.parent, "Успех", "Публикация добавлена")
@@ -325,20 +267,16 @@ class PublicationsTab:
         row = self.table.currentRow()
 
         if row == -1:
-            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
+            self._warn("Выберите публикацию")
             return
 
         publication_id = int(self.get_item_text(row, 0))
+        old_data = get_publication(publication_id)
 
-        old_data = str({
-            "title": self.get_item_text(row, 1),
-            "journal": self.get_item_text(row, 2),
-            "level": self.get_item_text(row, 3),
-            "pages": self.get_item_text(row, 4),
-            "type": self.get_item_text(row, 5),
-            "date": self.get_item_text(row, 6),
-            "authors": self.get_item_text(row, 7),
-        })
+        if old_data is None:
+            self._warn("Публикация уже удалена")
+            self.load_publications()
+            return
 
         reply = QtWidgets.QMessageBox.question(
             self.parent,
@@ -351,152 +289,78 @@ class PublicationsTab:
         if reply != QtWidgets.QMessageBox.Yes:
             return
 
-        path = get_publication_file(publication_id)
-        FileService.delete_file(path)
+        stored_file = get_publication_file(publication_id)
 
-        success = delete_publication_by_id(publication_id)
-
-        if success:
-            self.history.add(
-                "publication",
-                publication_id,
-                "delete",
-                old_data,
-                None
-            )
-
-            self.parent.history_tab.refresh()
-
-            QtWidgets.QMessageBox.information(self.parent, "Успех", "Публикация удалена")
-            self.load_publications()
-        else:
+        # Сначала запись в базе, и только потом файл: если удаление в базе
+        # не удалось, вложение остаётся на месте.
+        if not delete_publication_by_id(publication_id):
             QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка удаления")
+            return
+
+        FileService.delete_file(stored_file)
+
+        self.history.add("publication", publication_id, "delete", old_data, None)
+        self.parent.history_tab.refresh()
+
+        if self.selected_publication_id == publication_id:
+            self.clear_fields()
+
+        QtWidgets.QMessageBox.information(self.parent, "Успех", "Публикация удалена")
+        self.load_publications()
 
     def update_publication_data(self):
         if self.selected_publication_id is None:
-            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", "Выберите публикацию")
+            self._warn("Выберите публикацию")
             return
 
-        clear_publication_authors(self.selected_publication_id)
-
-        authors_text = self.parent.inputAuthors.text()
-        authors_list = [a.strip() for a in authors_text.split(";") if a.strip()]
-
-        employees = get_all_employees()
-
-        for author in authors_list:
-            for emp in employees:
-                if emp[1] == author:
-                    link_employee_publication(emp[0], self.selected_publication_id)
-                    break
-        authors_text = self.parent.inputAuthors.text().strip()
-
-        if not authors_text:
-            QtWidgets.QMessageBox.warning(
-                self.parent,
-                "Ошибка",
-                "Поле 'Авторы' не может быть пустым"
-            )
+        # Сначала проверка, потом любые изменения: при ошибке в данных
+        # у публикации не должны пропасть авторы.
+        form = self._collect_form()
+        if form is None:
             return
+        data, author_ids = form
 
-        authors_list = [
-            a.strip()
-            for a in authors_text.split(";")
-            if a.strip()
-        ]
+        publication_id = self.selected_publication_id
+        old_data = get_publication(publication_id)
 
-        employees = get_all_employees()
-        employee_names = {emp[1] for emp in employees}
-
-        for author in authors_list:
-            if author not in employee_names:
-                QtWidgets.QMessageBox.warning(
-                    self.parent,
-                    "Ошибка",
-                    f"Сотрудник '{author}' отсутствует в базе данных"
-                )
-                return
-
-        row = self.table.currentRow()
-
-        old_data = str({
-            "title": self.get_item_text(row, 1),
-            "journal": self.get_item_text(row, 2),
-            "level": self.get_item_text(row, 3),
-            "pages": self.get_item_text(row, 4),
-            "type": self.get_item_text(row, 5),
-            "date": self.get_item_text(row, 6),
-            "authors": self.get_item_text(row, 7),
-        })
-
-        title = self.parent.inputPubTitle.text()
-        journal = self.parent.inputJournal.text()
-        level = self.parent.comboLevel.currentText()
-        pages = self.parent.inputPages.value()
-        pub_type = self.parent.comboType.currentText()
-        pub_date = self.parent.inputPubDate.date().toString("yyyy-MM-dd")
+        if old_data is None:
+            self._warn("Публикация не найдена: возможно, она уже удалена")
+            self.clear_fields()
+            self.load_publications()
+            return
 
         success = update_publication(
-            self.selected_publication_id,
-            title,
-            journal,
-            level,
-            pages,
-            pub_type,
-            pub_date
+            publication_id,
+            data["title"],
+            data["journal"],
+            data["level"],
+            data["pages"],
+            data["pub_type"],
+            data["pub_date"],
+            author_ids,
         )
 
-        file_path = FileService.save_file(
-            self.file_path,
-            self.selected_publication_id,
-            "files/publications",
-            self.current_file_path
-        )
+        if not success:
+            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
+            return
 
-        update_publication_file(self.selected_publication_id, file_path)
-
-        if self.file_path:
+        file_path, attached = self._attach_file(publication_id, self.current_file_path)
+        if attached:
+            update_publication_file(publication_id, file_path)
             self.history.add(
-                "publication_file",
-                self.selected_publication_id,
-                "update",
-                self.current_file_path,
-                file_path
-            )
-
-        if file_path:
-            QtWidgets.QMessageBox.information(
-                self.parent,
-                "Файл",
-                "Файл успешно прикреплён"
+                "publication_file", publication_id, "update", self.current_file_path, file_path
             )
 
         self.file_path = None
-        self.current_file_path = None
+        self.current_file_path = get_publication_file(publication_id)
 
-        if success:
-            self.history.add(
-                "publication",
-                self.selected_publication_id,
-                "update",
-                old_data,
-                str({
-                    "title": title,
-                    "journal": journal,
-                    "level": level,
-                    "pages": pages,
-                    "type": pub_type,
-                    "date": pub_date,
-                    "authors": "; ".join(authors_list)
-                })
-            )
+        self.history.add(
+            "publication", publication_id, "update", old_data, get_publication(publication_id)
+        )
+        self.parent.history_tab.refresh()
+        self.load_publications()
 
-            self.parent.history_tab.refresh()
-            self.load_publications()
-
-            QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
-        else:
-            QtWidgets.QMessageBox.critical(self.parent, "Ошибка", "Ошибка обновления")
+        QtWidgets.QMessageBox.information(self.parent, "Успех", "Обновлено")
 
     def open_file(self, row, col):
         pub_id = int(self.get_item_text(row, 0))
@@ -505,7 +369,7 @@ class PublicationsTab:
         try:
             FileService.open_file(path)
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self.parent, "Ошибка", str(e))
+            self._warn(str(e))
 
     def delete_file(self, pub_id):
         reply = QtWidgets.QMessageBox.question(
@@ -524,16 +388,13 @@ class PublicationsTab:
         FileService.delete_file(old_path)
         update_publication_file(pub_id, None)
 
+        if self.selected_publication_id == pub_id:
+            self.current_file_path = None
+
         QtWidgets.QMessageBox.information(self.parent, "Файл", "Файл удалён")
 
         # история
-        self.history.add(
-            "publication_file",
-            pub_id,
-            "delete",
-            old_path,
-            None
-        )
+        self.history.add("publication_file", pub_id, "delete", old_path, None)
 
         self.parent.history_tab.refresh()
         self.load_publications()
@@ -543,6 +404,10 @@ class PublicationsTab:
     # ======================
 
     def clear_fields(self):
+        # После очистки «Обновить» не должен менять ранее выбранную публикацию
+        self.selected_publication_id = None
+        self.file_path = None
+        self.current_file_path = None
         self.inputTitle.clear()
         self.inputJournal.clear()
         self.inputPages.setValue(1)
